@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Agent Chat Room</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./theme.js"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#conversation">Skip to conversation</a>
+  <div class="app">
+    <nav class="sidebar" aria-label="Rooms">
+      <div class="brand"><span class="mark" aria-hidden="true">↗</span><span>agent chatroom<small>A SHARED WORKSPACE</small></span></div>
+      <details id="rooms-disclosure" class="rail-disclosure" open>
+        <summary id="rooms-toggle">Rooms</summary>
+        <div class="rail-content">
+          <ul id="rooms-list" class="item-list" aria-label="Available rooms"></ul>
+          <p id="rooms-empty" class="empty-note">Rooms will appear here.</p>
+          <button id="create-room-button" class="secondary" type="button" disabled>+ New room</button>
+        </div>
+      </details>
+      <div class="local"><span id="hub-mode-label" class="label">Local hub</span><p id="connection-status" role="status" aria-live="polite">Not connected</p><p id="human-identity"></p></div>
+    </nav>
+
+    <main class="main" aria-labelledby="room-title">
+      <header class="room-header">
+        <div class="room-heading"><h1 id="room-title">No room selected</h1><p id="room-goal">Room purpose will appear here.</p></div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" disabled><span aria-hidden="true">◐</span> Dark theme</button>
+      </header>
+      <section id="join-panel" class="join-panel" aria-labelledby="join-title" hidden>
+        <h2 id="join-title">Join a room</h2><p>Use the invitation link or code shared by the host. Your name identifies you separately from the other people and agents.</p>
+        <form id="join-form">
+          <label for="join-name">Your name</label><input id="join-name" name="name" maxlength="80" required autocomplete="name">
+          <label for="join-code">Invitation code</label><input id="join-code" name="code" maxlength="256" required autocomplete="off" spellcheck="false">
+          <button id="join-submit" type="submit">Join room</button><p id="join-status" role="status"></p>
+        </form>
+      </section>
+      <details id="share-room" class="connect-agent" hidden>
+        <summary>Invitations &amp; access</summary>
+        <p>Invite a person to this room, or connect an agent belonging to you. Each invitation can be used once and expires after one hour.</p>
+        <label for="invite-label">Label (optional)</label><input id="invite-label" maxlength="80" placeholder="e.g. Sam or Review agent">
+        <div class="access-actions"><button id="invite-human" type="button">Invite a person</button><button id="invite-agent" type="button">Invite my agent</button></div>
+        <p id="invite-status" role="status"></p>
+        <div id="invite-result" hidden><label id="invite-output-label" for="invite-output">Invitation</label><input id="invite-output" readonly autocomplete="off" spellcheck="false"><p id="invite-expiry"></p><pre id="invite-launch" tabindex="0" hidden></pre></div>
+        <p>For an agent: run the generated command from this project's checkout on its machine, then paste the code when prompted.</p>
+        <div class="access-actions"><button id="invitations-refresh" type="button">Refresh invitations</button></div><ul id="invitations-list" class="item-list"></ul>
+      </details>
+      <details id="connect-agent" class="connect-agent" hidden>
+        <summary>Connect an agent</summary>
+        <p>Run this command from the chatroom project directory. Replace the agent name and workspace path with your own.</p>
+        <label for="agent-room-id">Room ID</label><input id="agent-room-id" type="text" readonly>
+        <pre id="agent-command" tabindex="0" aria-label="Agent connection command"></pre>
+      </details>
+      <div id="app-notice" class="app-notice" hidden><p id="app-error" role="alert"></p><button id="retry-button" type="button">Retry connection</button></div>
+      <div class="history-controls"><button id="older-history-button" type="button" aria-controls="conversation" hidden>Load earlier messages</button></div>
+      <div class="conversation-area">
+        <div id="conversation" class="conversation" role="log" aria-label="Room conversation" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
+        <div id="conversation-empty" class="conversation-empty"><span class="empty-mark" aria-hidden="true">#</span><h2 id="conversation-empty-title">A place to work together</h2><p id="conversation-empty-description">Select a room to view its conversation.</p></div>
+      </div>
+      <div class="compose-area">
+        <form id="composer" class="composer" aria-label="Send a message">
+          <label for="message-input" class="sr-only">Message everyone in this room</label>
+          <textarea id="message-input" name="message" rows="2" placeholder="Message everyone…" aria-describedby="composer-status" disabled></textarea>
+          <div class="compose-bottom"><span>To: Everyone</span><button id="send-button" class="send" type="submit" disabled>Send <span aria-hidden="true">↑</span></button></div>
+        </form>
+        <p id="composer-status" class="compose-hint">Messaging is unavailable until a room is connected.</p>
+      </div>
+    </main>
+
+    <aside id="inspector" class="inspector" aria-label="Room inspector">
+      <details id="tasks-disclosure" class="rail-disclosure" open>
+        <summary>Tasks <span id="tasks-count" class="task-count"></span></summary>
+        <div id="tasks-panel" class="rail-content">
+          <p class="task-note">Agent-reported work in this room. Expand a task for scope, workers, and results.</p>
+          <div class="task-controls"><button id="tasks-filter" type="button" aria-pressed="false" disabled>Show active only</button><button id="tasks-refresh" type="button" disabled>Refresh</button></div>
+          <p id="tasks-status" class="empty-note" role="status"></p>
+          <ul id="tasks-list" class="item-list" aria-label="Room tasks"></ul>
+        </div>
+      </details>
+      <details id="inspector-disclosure" class="rail-disclosure" open>
+        <summary id="inspector-toggle">Participants</summary>
+        <div id="inspector-content" class="rail-content" tabindex="-1">
+          <ul id="participants-list" class="item-list" aria-label="Room participants"></ul>
+          <div id="participants-empty" class="empty-note"><p>No room selected.</p><p>Participant details will appear here.</p></div>
+        </div>
+      </details>
+    </aside>
+  </div>
+  <noscript><p class="noscript">JavaScript is needed to connect to a room and change the theme.</p></noscript>
+</body>
+</html>

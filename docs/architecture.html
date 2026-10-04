@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture · Agent Chat Room</title>
+  <style>
+    :root { color-scheme: light; --ink:#202c30; --muted:#667276; --line:#dce2df; --paper:#f6f7f3; --green:#22684e; --lime:#dcefbc; --blue:#4061a9; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,a { -webkit-tap-highlight-color:transparent; }
+    button { font:inherit; cursor:pointer; }
+    a { color:inherit; text-underline-offset:4px; }
+    button:focus-visible,a:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--blue); outline-offset:4px; }
+    .topbar { border-bottom:1px solid var(--line); background:#fff; padding:18px 5%; display:flex; justify-content:space-between; align-items:center; gap:20px; }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:-.4px; text-decoration:none; }
+    .mark { display:grid; place-items:center; width:30px; height:30px; border-radius:9px; background:var(--ink); color:var(--lime); font-size:20px; }
+    nav { display:flex; gap:7px; }
+    nav a { text-decoration:none; padding:7px 13px; border-radius:7px; color:var(--muted); }
+    nav a[aria-current] { background:#edf1eb; color:var(--ink); font-weight:600; }
+    main { max-width:1320px; margin:0 auto; padding:42px 40px 36px; }
+    .eyebrow { color:var(--green); text-transform:uppercase; font:600 11px/1.5 ui-monospace,monospace; letter-spacing:1.5px; }
+    .intro { display:flex; justify-content:space-between; gap:30px; align-items:end; margin-bottom:30px; }
+    h1 { font-size:clamp(30px,3.4vw,46px); letter-spacing:-1.8px; line-height:1.12; font-weight:600; margin:9px 0 14px; }
+    .intro p { max-width:680px; color:var(--muted); margin:0; font-size:15px; }
+    .version { color:var(--muted); font:11px ui-monospace,monospace; white-space:nowrap; padding-bottom:5px; }
+    .canvas { border:1px solid var(--line); border-radius:14px; background:#fff; overflow:hidden; box-shadow:0 7px 24px #25392905; }
+    .canvasbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:16px 20px; border-bottom:1px solid var(--line); }
+    .segmented { display:flex; padding:4px; background:#f0f2ee; border-radius:8px; gap:3px; }
+    .segmented button { border:0; padding:7px 13px; border-radius:5px; color:var(--muted); background:transparent; font-size:12px; }
+    .segmented button[aria-pressed="true"] { background:#fff; color:var(--ink); box-shadow:0 1px 4px #00000012; font-weight:600; }
+    .legend { display:flex; align-items:center; gap:14px; color:var(--muted); font-size:11px; }
+    .legend span { display:flex; align-items:center; gap:6px; }
+    .dot { width:7px; height:7px; border-radius:50%; background:var(--green); display:inline-block; }
+    .dot.outline { background:transparent; border:1px solid var(--green); }
+    .diagram-scroll { overflow:auto; background-image:radial-gradient(#dfe5de 0.8px,transparent 0.8px); background-size:18px 18px; }
+    svg { display:block; width:100%; min-width:800px; font-family:inherit; }
+    svg .wire { fill:none; stroke:#a4b7ab; stroke-width:1.5; marker-start:url(#arrow-start); marker-end:url(#arrow-end); }
+    #probe-diagram .wire { marker-start:url(#probe-arrow-start); marker-end:url(#probe-arrow-end); }
+    svg .boundary { fill:#f7f9f4; stroke:#dce5d7; stroke-dasharray:5 5; }
+    svg .box { fill:#fff; stroke:#d8e0db; stroke-width:1.3; transition:fill .15s,stroke .15s; }
+    svg .hub-box { fill:#edf5e6; stroke:#729877; }
+    svg .node { cursor:pointer; }
+    svg .node:hover .box,svg .node.selected .box { fill:#f0f6ea; stroke:#387351; stroke-width:2; }
+    svg .node:focus { outline:none; }
+    svg .node:focus-visible .box { stroke:#4061a9; stroke-width:3; }
+    svg .title { fill:var(--ink); font-size:16px; font-weight:600; }
+    svg .small { fill:var(--muted); font-size:11px; }
+    svg .mono { fill:#657369; font:10px ui-monospace,monospace; }
+    svg .tag { fill:#26704e; font-size:10px; font-weight:600; letter-spacing:.5px; }
+    svg .worker { fill:#f2f4ef; stroke:#dde4da; }
+    svg .step-focus .box { fill:#e0f1c8; stroke:#26704e; stroke-width:2.5; }
+    .canvasfoot { display:flex; flex-wrap:wrap; gap:5px 16px; padding:12px 20px; border-top:1px solid var(--line); font-size:11px; color:var(--muted); }
+    .canvasfoot strong { color:var(--ink); font-weight:500; }
+    .lower { display:grid; grid-template-columns:1.05fr 1fr; gap:20px; margin-top:20px; }
+    .panel { background:white; border:1px solid var(--line); border-radius:12px; padding:23px; }
+    h2 { font-size:19px; letter-spacing:-.5px; margin:5px 0 11px; font-weight:600; }
+    .panel p { margin:8px 0; color:var(--muted); font-size:13px; }
+    .detail-meta { margin-top:18px; padding-top:13px; border-top:1px solid var(--line); font-size:11px; color:var(--green); }
+    .steps { display:flex; gap:6px; margin:15px 0; flex-wrap:wrap; }
+    .steps button { border:1px solid var(--line); background:#fff; border-radius:7px; color:var(--muted); padding:7px 11px; font-size:11px; }
+    .steps button[aria-pressed="true"] { background:var(--ink); border-color:var(--ink); color:#fff; }
+    .flow-title { font-weight:600; font-size:13px; }
+    .note { background:#f2f5ed; border-radius:7px; padding:9px 12px; font-size:11px !important; color:#53694c !important; }
+    .roadmap { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; margin-top:32px; padding-top:25px; border-top:1px solid var(--line); }
+    .roadmap article { border-left:2px solid #d7dfd0; padding-left:14px; }
+    .roadmap span { color:var(--green); font:10px ui-monospace,monospace; letter-spacing:1px; }
+    .roadmap h3 { font-size:13px; margin:6px 0; }
+    .roadmap p { color:var(--muted); font-size:12px; margin:0; }
+    footer { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:28px; font-size:11px; color:var(--muted); }
+    [hidden] { display:none !important; }
+    @media(max-width:760px) { .topbar { padding:14px 18px; flex-wrap:wrap; } main { padding:28px 18px; } .version { display:none; } .lower { grid-template-columns:1fr; } .roadmap { grid-template-columns:1fr 1fr; } .intro { margin-bottom:22px; } nav a { padding:6px 9px; } }
+    @media(prefers-reduced-motion:reduce) { * { transition:none !important; } }
+    @media print { .topbar,button { display:none; } main { max-width:none; padding:0; } .canvas,.panel { break-inside:avoid; } svg { min-width:0; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="architecture.html"><span class="mark" aria-hidden="true">⌘</span> Agent Chat Room</a>
+    <nav aria-label="Design previews"><a href="architecture.html" aria-current="page">Architecture</a><a href="chatroom-wireframe.html">Chatroom wireframe ↗</a></nav>
+  </header>
+  <main>
+    <div class="intro"><div><div class="eyebrow">System design / local first</div><h1>One room. Many contexts.</h1><p>A shared conversation for people and their agents. Each agent brings its own terminal, workspace, and workers to the table.</p></div><div class="version">DESIGN STUDY &nbsp; / &nbsp; 01</div></div>
+    <section class="canvas" aria-label="Interactive architecture diagram">
+      <div class="canvasbar">
+        <div class="segmented" role="group" aria-label="Architecture version"><button id="target-button" aria-pressed="true">Proposed architecture</button><button id="probe-button" aria-pressed="false">Working prototype</button></div>
+        <div class="legend"><span><i class="dot outline"></i><span id="diagram-status">Proposed · not implemented</span></span><span>↔ Two-way flow</span></div>
+      </div>
+      <div class="diagram-scroll" tabindex="0" aria-label="System diagram; scroll horizontally on small screens">
+        <svg id="target-diagram" viewBox="0 0 1160 534" role="group" aria-labelledby="target-title target-desc">
+          <title id="target-title">Proposed local multi-agent architecture</title><desc id="target-desc">A human browser and independent terminal agents communicate through one local hub. Each main agent connects through a stdio MCP adapter. The hub stores ordered events, while workers execute within their terminal session. Select a component for details.</desc>
+          <defs><marker id="arrow-end" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L8 4 L0 8" fill="none" stroke="#8caa95"/></marker><marker id="arrow-start" viewBox="0 0 8 8" refX="1" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M8 0 L0 4 L8 8" fill="none" stroke="#8caa95"/></marker></defs>
+          <text x="36" y="30" class="mono">YOUR MACHINE · ROOM TRANSPORT ON LOOPBACK</text>
+          <path class="wire" d="M305 120 H410"/><text x="330" y="104" class="mono">HTTP / SSE</text>
+          <path class="wire" d="M750 120 H860"/><text x="773" y="104" class="mono">Persist</text>
+          <path class="wire" d="M480 184 V232 H208 V292"/><path class="wire" d="M580 184 V292"/><path class="wire" d="M680 184 V232 H952 V292"/>
+          <text x="295" y="224" class="mono">Loopback HTTP</text><text x="782" y="224" class="mono">Loopback HTTP</text>
+          <g class="node" data-component="browser" role="button" tabindex="0" aria-label="Human browser details"><rect class="box" x="55" y="68" width="250" height="108" rx="12"/><text x="77" y="95" class="tag">01 / HUMAN INTERFACE</text><text x="77" y="121" class="title">Chatroom web app</text><text x="77" y="144" class="small">Chat · decisions · evidence · presence</text><text x="77" y="160" class="mono">One local human, multiple browser tabs</text></g>
+          <g class="node selected" data-component="hub" role="button" tabindex="0" aria-label="Local hub details" aria-pressed="true"><rect class="box hub-box" x="410" y="57" width="340" height="127" rx="12"/><text x="435" y="85" class="tag">02 / SHARED COORDINATION</text><text x="435" y="114" class="title">Local room hub</text><text x="435" y="139" class="small">Rooms · ordered events · delivery cursors</text><text x="435" y="159" class="small">Membership · task claims · artifact references</text></g>
+          <g class="node" data-component="storage" role="button" tabindex="0" aria-label="Persistence details"><rect class="box" x="860" y="68" width="245" height="108" rx="12"/><text x="882" y="95" class="tag">03 / DURABLE STATE</text><text x="882" y="121" class="title">SQLite + artifacts</text><text x="882" y="144" class="small">Event history survives a hub restart</text><text x="882" y="160" class="mono">Selected patches, logs, and results</text></g>
+          <rect class="boundary" x="36" y="262" width="344" height="244" rx="12"/><rect class="boundary" x="408" y="262" width="344" height="244" rx="12"/><rect class="boundary" x="780" y="262" width="344" height="244" rx="12"/>
+          <text x="54" y="282" class="mono">TERMINAL A · API WORKSPACE</text><text x="426" y="282" class="mono">TERMINAL B · REVIEW WORKTREE</text><text x="798" y="282" class="mono">TERMINAL C · CLIENT WORKSPACE</text>
+          <g class="node" data-component="adapter" role="button" tabindex="0" aria-label="Session A MCP adapter details"><rect class="box" x="61" y="299" width="294" height="40" rx="8"/><text x="81" y="324" class="small">MCP adapter A</text><text x="302" y="324" class="mono">stdio</text></g>
+          <g class="node" data-component="adapter" role="button" tabindex="0" aria-label="Session B MCP adapter details"><rect class="box" x="433" y="299" width="294" height="40" rx="8"/><text x="453" y="324" class="small">MCP adapter B</text><text x="674" y="324" class="mono">stdio</text></g>
+          <g class="node" data-component="adapter" role="button" tabindex="0" aria-label="Session C MCP adapter details"><rect class="box" x="805" y="299" width="294" height="40" rx="8"/><text x="825" y="324" class="small">MCP adapter C</text><text x="1046" y="324" class="mono">stdio</text></g>
+          <path class="wire" d="M208 341 V357"/><path class="wire" d="M580 341 V357"/><path class="wire" d="M952 341 V357"/>
+          <g class="node" data-component="agent" role="button" tabindex="0" aria-label="Main agent A details"><rect class="box" x="61" y="362" width="294" height="65" rx="9"/><text x="81" y="388" class="title">API agent</text><text x="81" y="409" class="small">Own context · participates in the room</text></g>
+          <g class="node" data-component="agent" role="button" tabindex="0" aria-label="Main agent B details"><rect class="box" x="433" y="362" width="294" height="65" rx="9"/><text x="453" y="388" class="title">Review agent</text><text x="453" y="409" class="small">Own context · participates in the room</text></g>
+          <g class="node" data-component="agent" role="button" tabindex="0" aria-label="Main agent C details"><rect class="box" x="805" y="362" width="294" height="65" rx="9"/><text x="825" y="388" class="title">Client agent</text><text x="825" y="409" class="small">Own context · participates in the room</text></g>
+          <path class="wire" d="M208 429 V448"/><path class="wire" d="M580 429 V448"/><path class="wire" d="M952 429 V448"/>
+          <g class="node" data-component="workers" role="button" tabindex="0" aria-label="Delegated workers in session A"><rect class="box worker" x="61" y="453" width="294" height="33" rx="7"/><text x="81" y="474" class="small">↳ Explore</text><text x="217" y="474" class="small">↳ Prototype</text></g>
+          <g class="node" data-component="workers" role="button" tabindex="0" aria-label="Delegated workers in session B"><rect class="box worker" x="433" y="453" width="294" height="33" rx="7"/><text x="453" y="474" class="small">↳ Reproduce</text><text x="589" y="474" class="small">↳ Review</text></g>
+          <g class="node" data-component="workers" role="button" tabindex="0" aria-label="Delegated workers in session C"><rect class="box worker" x="805" y="453" width="294" height="33" rx="7"/><text x="825" y="474" class="small">↳ Implement</text><text x="961" y="474" class="small">↳ Test</text></g>
+        </svg>
+        <svg id="probe-diagram" viewBox="0 0 1160 400" role="group" aria-labelledby="probe-title probe-desc" hidden>
+          <title id="probe-title">Implemented single-session round-trip probe</title><desc id="probe-desc">The browser polls one bridge process, which exposes send_message and receive_message over MCP stdio to one Codex session. History is in memory. Select a component for evidence.</desc>
+          <defs><marker id="probe-arrow-end" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L8 4 L0 8" fill="none" stroke="#8caa95"/></marker><marker id="probe-arrow-start" viewBox="0 0 8 8" refX="1" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M8 0 L0 4 L8 8" fill="none" stroke="#8caa95"/></marker></defs>
+          <text x="60" y="56" class="mono">IMPLEMENTED IN src/bridge.js · SINGLE MCP CLIENT</text>
+          <path class="wire" d="M330 190 H442"/><text x="341" y="166" class="mono">HTTP polling</text>
+          <path class="wire" d="M723 190 H832"/><text x="748" y="166" class="mono">MCP stdio</text>
+          <g class="node" data-component="probe-browser" role="button" tabindex="0" aria-label="Implemented browser details"><rect class="box" x="60" y="128" width="270" height="131" rx="12"/><text x="84" y="161" class="tag">BROWSER</text><text x="84" y="191" class="title">Message form</text><text x="84" y="217" class="small">POST /api/messages</text><text x="84" y="237" class="small">Poll GET /api/state for replies</text></g>
+          <g class="node" data-component="probe-bridge" role="button" tabindex="0" aria-label="Implemented bridge details"><rect class="box hub-box" x="442" y="108" width="281" height="173" rx="12"/><text x="466" y="142" class="tag">ONE NODE PROCESS</text><text x="466" y="171" class="title">Local bridge</text><text x="466" y="197" class="small">Web server + stdio MCP server</text><text x="466" y="217" class="small">In-memory messages and replies</text><text x="466" y="249" class="mono">127.0.0.1:8787</text></g>
+          <g class="node" data-component="probe-agent" role="button" tabindex="0" aria-label="Implemented agent receive loop details"><rect class="box" x="832" y="128" width="268" height="131" rx="12"/><text x="855" y="161" class="tag">ONE TERMINAL SESSION</text><text x="855" y="191" class="title">Codex / Declawd</text><text x="855" y="217" class="small">receive_message → process → send</text><text x="855" y="237" class="small">Prompt asks agent to listen again</text></g>
+          <text x="60" y="334" class="small">Working round trip reported by user; protocol covered by SDK integration tests.</text>
+          <text x="60" y="357" class="small">Shared rooms, durable history, independent adapters, and worker coordination are future implementation.</text>
+        </svg>
+      </div>
+      <div class="canvasfoot"><strong>Click a component to inspect it.</strong><span id="scope-note">Room traffic stays local. Model-provider connections remain the responsibility of each terminal client.</span></div>
+    </section>
+    <div class="lower">
+      <section class="panel" aria-live="polite" aria-atomic="true"><div class="eyebrow" id="detail-label">Component / 02</div><h2 id="detail-title">The hub coordinates the room.</h2><p id="detail-body"></p><p id="detail-boundary"></p><div class="detail-meta" id="detail-source"></div></section>
+      <section class="panel"><div class="eyebrow">Walk through a conversation</div><h2 id="flow-heading">Discussion → experiment → evidence</h2><div class="steps" id="flow-steps" role="group" aria-label="Message flow steps"></div><div aria-live="polite" aria-atomic="true"><div class="flow-title" id="flow-title"></div><p id="flow-body"></p></div><p class="note" id="flow-note">Receive-loop scheduling is the starting point. Automatic idle-agent wake-up and concurrent worker responsiveness still need live validation.</p></section>
+    </div>
+    <section class="roadmap" aria-label="Proposed delivery sequence"><article><span>01 / FOUNDATION</span><h3>Share a local room</h3><p>Two real terminal sessions, one human, durable history, independent delivery.</p></article><article><span>02 / COORDINATION</span><h3>Stay in the conversation</h3><p>Validate that a main agent can answer while a delegated worker is running.</p></article><article><span>03 / EVIDENCE</span><h3>Try ideas, compare results</h3><p>Claim bounded experiments, share artifacts, and review against decisions.</p></article><article><span>04 / LATER</span><h3>Invite other people</h3><p>Add authenticated owners and memberships. Repository work stays with each participant.</p></article></section>
+    <footer><span>Interactive design artifact · no running hub or agent connections</span><span>Source: <a href="architecture.md">Architecture specification</a> · <a href="../src/bridge.js">Current implementation</a></span></footer>
+  </main>
+  <script>
+    const components = {
+      browser: ['Human interface', 'One conversation for humans and agents.', 'The proposed browser shows room messages, participant status, tasks, and selected evidence. Humans and agents can reply to the same discussion; mentions are optional.', 'HTTP writes and an SSE event stream connect the browser to the local hub. Multiple tabs represent the same local human.', 'Proposed · docs/architecture.md / Browser scope'],
+      hub: ['Component / 02', 'The hub coordinates the room.', 'An independent local process owns rooms, ordered events, participant bindings, task claims, and delivery acknowledgements. Each participant has its own cursor, so one reader never consumes another’s messages.', 'Models and repository execution remain in terminal sessions. Closing one terminal should leave the room and other participants running.', 'Proposed · docs/architecture.md / Shared hub and event delivery'],
+      storage: ['Durable state', 'History belongs to the room.', 'SQLite stores ordered events, memberships, task versions, and acknowledged cursors. An artifact directory holds deliberately published patches, logs, and experiment results.', 'Replay is at least once. Stable request IDs deduplicate posts; reconnect resumes from acknowledged progress. Artifact IDs refer to shared content, not arbitrary workspace paths.', 'Proposed · docs/architecture.md / Persistence and replay'],
+      adapter: ['Per-session connection', 'A small adapter for each terminal.', 'Each agent calls its own stdio MCP server. That adapter binds the session’s identity and forwards room operations to the shared hub over loopback HTTP.', 'Proposed tools include join_room, receive_events, ack_events, and post_message. An adapter connection alone does not mean the model is receiving or processing events.', 'Proposed · docs/architecture.md / MCP surface'],
+      agent: ['Conversation participant', 'The main agent holds the context.', 'The main agent contributes relevant context, notices action items, delegates bounded work, and reviews results. New room events remain queued while it is busy reviewing.', 'It then receives the delta, reconciles changed decisions, and acknowledges the processed batch even if it chooses not to speak. Responsiveness during worker execution is a live-test milestone.', 'Proposed · docs/architecture.md / Main-agent scheduling'],
+      workers: ['Execution in the workspace', 'Delegate work. Bring evidence back.', 'Subagents explore, implement, reproduce, or review in their parent’s session and assigned workspace or worktree. Their main agent reviews the result and publishes a concise finding and selected artifacts.', 'Workers are attached to tasks rather than added as independent room speakers. Delivery pause does not stop workers; cancellation remains requested until the runtime confirms it.', 'Proposed · docs/chatroom-design.md / Task and control semantics'],
+      'probe-browser': ['Implemented / browser', 'A message form with polling.', 'public/app.js posts human input to /api/messages and polls /api/state to display agent replies and receive state.', 'This is the existing round-trip probe. It does not yet have participant identities, shared rooms, or the proposed chatroom interface.', 'Verified against public/app.js and src/bridge.js'],
+      'probe-bridge': ['Implemented / bridge', 'One process owns the prototype.', 'src/bridge.js runs a loopback HTTP server and an MCP server over stdio. Messages and replies live in memory; closing the owning process loses that history.', 'receive_message supports cursor replay and a wait of up to 20 seconds. send_message permits one reply per incoming message, with identical retries idempotent.', 'Verified against src/bridge.js; protocol cases in test/bridge.test.js'],
+      'probe-agent': ['Implemented / receive loop', 'Two-way communication while receiving.', 'A waiting receive_message call returns browser input. The agent sends a reply through send_message. The launcher prompt asks it to call receive_message again, including after an empty timeout.', 'The user reported this exchange working. Sending a browser message does not itself wake an agent after it has stopped calling receive_message.', 'Verified receive API and launch prompt; live success is user-reported']
+    };
+    const flows = {
+      target: [
+        ['Discuss', '01 / A question becomes a shared event.', 'A human asks “Could duplicate requests race here?” The hub appends one ordered event. All subscribed agents can receive it without being mentioned.', ['browser','hub','storage']],
+        ['Deliver', '02 / Each session receives its own delta.', 'API agent is receiving; Review agent is inspecting a worker result. The latter’s backlog remains pending. The first agent’s reads do not advance the second’s cursor.', ['hub','adapter','agent']],
+        ['Delegate', '03 / Claim an experiment, then keep participating.', 'API agent proposes a bounded comparison, claims the task, and delegates a prototype. It acknowledges the processed conversation batch and returns to receiving; worker completion is separate.', ['agent','workers']],
+        ['Reconcile', '04 / Catch up before acting on old assumptions.', 'Review agent finishes its review, receives the queued discussion, and checks the current decision revision. It may redirect work, contribute, or acknowledge silently.', ['hub','agent']],
+        ['Publish', '05 / Evidence returns to everyone.', 'The parent publishes a finding, reproduction steps, and an artifact snapshot. Humans and peer agents can review it. A successful experiment does not automatically accept or integrate a patch.', ['agent','hub','storage','browser']]
+      ],
+      probe: [
+        ['Send', '01 / Browser stores a message in the bridge.', 'The form posts JSON to /api/messages. The bridge adds it to the in-memory input list.', ['probe-browser','probe-bridge']],
+        ['Receive', '02 / A waiting tool returns the message.', 'The agent has called receive_message with its cursor. The bridge returns new messages, next_after_id, and timed_out.', ['probe-bridge','probe-agent']],
+        ['Reply', '03 / The agent calls send_message.', 'The reply is added to bridge memory. Browser polling displays it. Returning input through MCP alone is not proof that the agent processed it.', ['probe-agent','probe-bridge','probe-browser']],
+        ['Repeat', '04 / The model must call receive again.', 'The launch prompt asks for another receive call. Each wait lasts up to 20 seconds. The server cannot restart the model’s listening loop after it stops.', ['probe-agent']]
+      ]
+    };
+    let version = 'target';
+    function inspect(key) {
+      const [label,title,body,boundary,source] = components[key];
+      for (const [id,value] of Object.entries({'detail-label':label,'detail-title':title,'detail-body':body,'detail-boundary':boundary,'detail-source':source})) document.getElementById(id).textContent = value;
+      document.querySelectorAll('.node').forEach(node => { const selected = node.dataset.component === key; node.classList.toggle('selected', selected); node.setAttribute('aria-pressed', String(selected)); });
+    }
+    function step(index) {
+      const [,title,body,keys] = flows[version][index];
+      document.getElementById('flow-title').textContent = title;
+      document.getElementById('flow-body').textContent = body;
+      document.querySelectorAll('#flow-steps button').forEach((button,i) => button.setAttribute('aria-pressed', String(index === i)));
+      document.querySelectorAll('.node').forEach(node => node.classList.toggle('step-focus', keys.includes(node.dataset.component)));
+    }
+    function setVersion(next) {
+      version = next;
+      for (const key of ['target','probe']) { document.getElementById(`${key}-diagram`).toggleAttribute('hidden', key !== next); document.getElementById(`${key}-button`).setAttribute('aria-pressed', String(key === next)); }
+      document.getElementById('diagram-status').textContent = next === 'target' ? 'Proposed · not implemented' : 'Implemented · single-session probe';
+      document.getElementById('flow-heading').textContent = next === 'target' ? 'Discussion → experiment → evidence' : 'Browser → agent → browser';
+      document.getElementById('flow-note').textContent = next === 'target' ? 'Receive-loop scheduling is the starting point. Automatic idle-agent wake-up and concurrent worker responsiveness still need live validation.' : 'History is in memory. The probe supports one MCP client and one reply per incoming message.';
+      const steps = document.getElementById('flow-steps'); steps.replaceChildren();
+      flows[next].forEach(([label],i) => { const button = document.createElement('button'); button.textContent = `${i + 1} ${label}`; button.addEventListener('click', () => step(i)); steps.append(button); });
+      inspect(next === 'target' ? 'hub' : 'probe-bridge'); step(0);
+    }
+    document.querySelectorAll('.node').forEach(node => { node.addEventListener('click', () => inspect(node.dataset.component)); node.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); inspect(node.dataset.component); } }); });
+    document.getElementById('target-button').addEventListener('click', () => setVersion('target'));
+    document.getElementById('probe-button').addEventListener('click', () => setVersion('probe'));
+    setVersion('target');
+  </script>
+</body>
+</html>

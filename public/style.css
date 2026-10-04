@@ -1,0 +1,14 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; }
+main { max-width: 680px; margin: 48px auto; padding: 0 24px; }
+h1 { font-size: 1.6rem; }
+p { line-height: 1.5; }
+#status { padding: 12px; border: 1px solid #8886; border-radius: 8px; }
+label { display: block; margin-bottom: 8px; font-weight: 600; }
+textarea { box-sizing: border-box; width: 100%; font: inherit; padding: 12px; border: 1px solid #8888; border-radius: 8px; resize: vertical; }
+button { margin-top: 10px; padding: 9px 20px; font: inherit; cursor: pointer; }
+.note, small { color: light-dark(#555, #bbb); font-size: .85rem; }
+#error { color: light-dark(#a11, #ff9a9a); margin-left: 10px; }
+ol { list-style: none; padding: 0; }
+li { padding: 16px 0; border-bottom: 1px solid #8884; }
+li p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; }

@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatroom wireframe · Agent Chat Room</title>
+  <script>
+    // Apply before the page paints, including when this file is opened offline.
+    const themeStorageKey = 'agent-chat-room-theme';
+    let themePreference = null;
+    try {
+      const savedTheme = localStorage.getItem(themeStorageKey);
+      if (savedTheme === 'light' || savedTheme === 'dark') themePreference = savedTheme;
+    } catch { /* The toggle still works if the browser disallows local storage. */ }
+    const systemTheme = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+    document.documentElement.dataset.theme = themePreference ?? (systemTheme?.matches ? 'dark' : 'light');
+  </script>
+  <style>
+    :root { color-scheme:light; --ink:#26322d; --muted:#718078; --line:#e2e7df; --green:#316d4c; --wash:#f5f7f1; --blue:#45639a; --amber:#946b2c; --surface:#fff; --panel:#fcfdf9; --card:#fafbf7; --focus:#6c8eaf; }
+    :root[data-theme="dark"] { color-scheme:dark; --ink:#e1e9df; --muted:#a4b0a3; --line:#344239; --green:#b2d98c; --wash:#171f1a; --blue:#abc1ed; --amber:#e3bf85; --surface:#111813; --panel:#19221b; --card:#202b21; --focus:#a2c8ef; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--surface); font:13px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,input,textarea,select { font:inherit; }
+    button,a,select { -webkit-tap-highlight-color:transparent; }
+    button { cursor:pointer; }
+    button:disabled { cursor:default; opacity:.55; }
+    a { color:inherit; text-underline-offset:3px; }
+    button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+    button { color:inherit; }
+    .preview { min-height:43px; background:#25392d; color:#dfe7dc; padding:8px 24px; display:flex; justify-content:space-between; align-items:center; gap:12px; font-size:11px; }
+    .preview strong { color:#d4e8b9; letter-spacing:1.2px; font-size:10px; margin-right:12px; }
+    .preview a { color:#f4f9ec; white-space:nowrap; }
+    .app { display:grid; grid-template-columns:208px minmax(400px,1fr) 330px; height:calc(100dvh - 43px); min-height:650px; max-width:1920px; margin:auto; }
+    .sidebar { background:var(--wash); border-right:1px solid var(--line); padding:26px 17px 18px; display:flex; flex-direction:column; }
+    .brand { display:flex; gap:10px; align-items:center; font-size:14px; font-weight:700; line-height:1.15; letter-spacing:-.4px; margin-bottom:35px; }
+    .mark { width:33px; height:33px; background:#293c2f; color:#daefbd; display:grid; place-items:center; border-radius:10px; font-size:23px; }
+    .brand small { display:block; font-size:9px; font-weight:500; letter-spacing:1.6px; margin-top:6px; color:var(--muted); }
+    .label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1.25px; font-weight:600; }
+    .side-label { display:flex; justify-content:space-between; margin:0 10px 10px; }
+    .room-link { width:100%; display:flex; align-items:center; gap:9px; border:1px solid #dce5d1; border-radius:7px; background:#e8efdf; padding:10px 12px; font-weight:600; text-align:left; }
+    .hash { color:#809172; font-size:17px; font-weight:400; }
+    .room-caption { padding:9px 12px 26px; font-size:11px; color:var(--muted); }
+    .side-nav { display:grid; gap:5px; margin-top:9px; }
+    .side-nav button { padding:9px 10px; text-align:left; border:0; background:none; color:#647367; display:flex; align-items:center; gap:9px; border-radius:6px; }
+    .side-nav button:hover { background:#e9eee2; }
+    .count { margin-left:auto; font-size:10px; color:var(--muted); background:#e8ede3; padding:1px 6px; border-radius:4px; }
+    .icon { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; flex-shrink:0; }
+    .room-goal { margin:28px 8px 15px; padding-top:20px; border-top:1px solid var(--line); }
+    .room-goal p { font-size:12px; color:#637262; margin:8px 0; }
+    .local { margin-top:auto; padding:18px 10px; color:var(--muted); font-size:11px; }
+    .local strong { display:block; color:#59694f; font-weight:500; }
+    .identity { border-top:1px solid var(--line); padding:16px 6px 0; display:flex; gap:10px; align-items:center; }
+    .identity small { display:block; color:var(--muted); font-size:10px; }
+    .avatar { width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; background:#ece5d8; color:#73674e; border-radius:10px; font-size:11px; font-weight:600; }
+    .avatar.api { background:#e5eddb; color:#567343; }
+    .avatar.review { background:#e6e9f5; color:#62729c; }
+    .main { display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+    .room-header { padding:23px 28px 17px; display:flex; justify-content:space-between; gap:15px; align-items:center; border-bottom:1px solid var(--line); }
+    h1 { margin:0; font-size:21px; font-weight:600; letter-spacing:-.6px; }
+    .room-header p { color:var(--muted); font-size:11px; margin:3px 0 0; }
+    .room-actions { display:flex; align-items:center; gap:16px; flex-shrink:0; }
+    .theme-toggle { display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 9px; border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--ink); font-size:10px; white-space:nowrap; }
+    .theme-toggle .icon { width:14px; height:14px; }
+    .theme-toggle:hover { border-color:var(--green); }
+    .theme-toggle[aria-pressed="true"] { color:var(--green); border-color:#698952; }
+    .presence { display:flex; align-items:center; }
+    .presence .avatar { border:2px solid var(--surface); width:28px; height:28px; flex-basis:28px; border-radius:50%; margin-left:-7px; font-size:9px; }
+    .presence button { border:0; background:transparent; color:var(--muted); padding:5px 0 5px 8px; font-size:11px; white-space:nowrap; }
+    .decision-strip { padding:12px 28px; display:flex; align-items:center; gap:10px; background:#fbfcf8; border-bottom:1px solid var(--line); font-size:11px; }
+    .decision-strip .icon { color:#788669; width:14px; }
+    .decision-strip button { border:0; background:none; padding:0; text-align:left; color:#53624f; }
+    .decision-strip .revision { margin-left:auto; font:10px ui-monospace,monospace; color:#849078; white-space:nowrap; }
+    .conversation { overflow:auto; flex:1; padding:20px 28px 24px; scroll-behavior:smooth; min-height:0; }
+    .day { display:flex; align-items:center; gap:12px; color:#889183; font:10px ui-monospace,monospace; margin:0 0 24px; }
+    .day::before,.day::after { content:""; height:1px; flex:1; background:#edf0e9; }
+    .message { display:flex; gap:12px; margin:0 0 23px; }
+    .message-body { min-width:0; flex:1; }
+    .byline { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:0 0 5px; font-size:12px; }
+    .byline button { padding:0; border:0; background:none; font-weight:600; }
+    .byline time { font-size:10px; color:#8c958d; margin-left:3px; }
+    .type { font-size:8px; color:#718064; background:#eff3e9; padding:1px 5px; border-radius:3px; font-weight:500; letter-spacing:.4px; text-transform:uppercase; }
+    .type.human { color:#93836a; background:#f6f1e8; }
+    .message p { margin:0 0 7px; line-height:1.65; font-size:13px; }
+    .inline-code { background:#f4f5f1; padding:1px 4px; border-radius:3px; font:11px ui-monospace,monospace; }
+    .reply-button { display:inline-flex; align-items:center; gap:5px; color:#718064; background:none; border:0; padding:3px 0; font-size:10px; }
+    .task-card { text-align:left; width:100%; padding:16px 17px; background:var(--card); border:1px solid #d8e2cf; border-radius:10px; margin:7px 0 4px; display:block; }
+    .task-card:hover { border-color:#9ab084; box-shadow:0 2px 9px #7180570b; }
+    .card-top { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .card-kind { color:#7d8b70; font:9px ui-monospace,monospace; letter-spacing:1px; display:flex; align-items:center; gap:6px; }
+    .card-kind .icon { width:13px; height:13px; }
+    .badge { border-radius:5px; padding:2px 6px; font-size:9px; background:#edf2e5; color:#667e47; display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+    .badge.amber { background:#fbf1de; color:#956f35; }
+    .badge.blue { background:#eef1f9; color:#6179a2; }
+    .task-card h3 { margin:4px 0; font-size:13px; font-weight:600; }
+    .task-card p { font-size:11px; color:var(--muted); margin:4px 0 11px; }
+    .card-footer { padding-top:10px; border-top:1px solid #e6ebdf; display:flex; align-items:center; gap:8px; font-size:10px; color:#7a866f; }
+    .card-footer .arrow { margin-left:auto; font-size:15px; }
+    .queue-note { border:1px solid #e7e7dc; background:#fbfbf6; border-radius:7px; padding:10px 12px; margin:7px 0 19px 44px; font-size:10px; color:#898773; display:flex; gap:9px; align-items:start; }
+    .queue-note .icon { width:13px; height:13px; margin-top:1px; }
+    .queue-note strong { color:#716f5c; font-weight:600; }
+    .compose-area { padding:0 24px 17px; }
+    .composer { border:1px solid #dbe1d4; border-radius:10px; padding:12px 14px; box-shadow:0 2px 5px #34492903; }
+    .composer:focus-within { border-color:#8da179; }
+    textarea { width:100%; border:0; resize:vertical; min-height:48px; max-height:140px; outline:none; padding:0; background:none; color:var(--ink); font-size:12px; }
+    textarea::placeholder { color:#97a08d; }
+    textarea:focus-visible { outline:none; }
+    .compose-bottom { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .compose-bottom span { font-size:10px; color:#8b9583; }
+    .send { background:#304932; color:#f3f8ed; border:0; border-radius:6px; padding:7px 12px; display:flex; align-items:center; gap:9px; font-size:11px; }
+    .compose-hint { text-align:center; font-size:9px; color:#929c88; margin-top:8px; }
+    .reply-context { font-size:10px; padding:0 0 9px; color:var(--green); display:flex; justify-content:space-between; gap:8px; }
+    .reply-context button { border:0; background:none; padding:0; color:var(--muted); }
+    .inspector { min-width:0; border-left:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; overflow:hidden; }
+    .inspector-header { padding:25px 20px 19px; border-bottom:1px solid var(--line); }
+    .inspector-header h2 { font-size:13px; font-weight:600; margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; }
+    .tabs { display:flex; gap:17px; }
+    .tabs button { color:#8a9580; border:0; background:transparent; padding:0 0 4px; font-size:11px; }
+    .tabs button[aria-pressed="true"] { color:#36543a; box-shadow:0 2px #729951; }
+    .inspector-content { padding:20px; flex:1; overflow:auto; }
+    .inspector-content h3 { font-size:17px; line-height:1.4; letter-spacing:-.3px; margin:8px 0 10px; font-weight:600; }
+    .inspector-content p { font-size:11px; color:#7a8770; margin:8px 0; }
+    .section { margin-top:20px; padding-top:17px; border-top:1px solid var(--line); }
+    .metadata { display:grid; grid-template-columns:77px 1fr; gap:11px 8px; font-size:10px; margin:21px 0; }
+    .metadata dt { color:#86927c; }
+    .metadata dd { margin:0; color:#51634a; overflow-wrap:anywhere; }
+    .person-line { display:flex; gap:7px; align-items:center; }
+    .mini { width:18px; height:18px; flex-basis:18px; font-size:7px; border-radius:5px; }
+    .hypothesis { padding:12px; background:#f1f5e9; border-radius:7px; font-size:11px; color:#63744f; line-height:1.65; margin:9px 0; }
+    .checklist { padding:0; list-style:none; display:grid; gap:10px; margin:12px 0; color:#768169; font-size:11px; }
+    .checklist li { display:flex; gap:9px; align-items:start; }
+    .check { color:#64874c; font-size:12px; }
+    .worker-card { border:1px solid #e0e7d7; border-radius:7px; padding:11px; margin-top:10px; font-size:11px; }
+    .worker-card strong { display:flex; justify-content:space-between; gap:8px; font-size:11px; font-weight:500; }
+    .worker-card p { font-size:10px; margin:4px 0; }
+    .bar { height:3px; width:100%; background:#e8ecdf; border-radius:3px; margin:9px 0 4px; }
+    .bar span { height:3px; display:block; width:50%; background:#9eb780; }
+    .text-button { border:0; background:none; color:#6a795c; padding:0; font-size:10px; text-decoration:underline; text-underline-offset:3px; }
+    .secondary { width:100%; border:1px solid #d9e2d0; background:var(--surface); border-radius:6px; padding:8px 10px; font-size:11px; }
+    .participant { padding:15px 0; border-bottom:1px solid var(--line); }
+    .participant:first-of-type { padding-top:7px; }
+    .participant-title { display:flex; align-items:center; gap:9px; }
+    .participant-title strong { display:block; font-size:12px; }
+    .participant-title small { color:var(--muted); font-size:10px; }
+    .state-list { display:grid; gap:6px; margin:12px 0; color:#68795e; font-size:10px; }
+    .state-list span { display:flex; align-items:center; gap:6px; }
+    .status-dot { width:5px; height:5px; background:#7f9e62; border-radius:50%; display:inline-block; }
+    .status-dot.amber { background:#b79765; }
+    .controls { display:flex; gap:7px; margin-top:11px; }
+    .controls select,.controls button { min-width:0; border:1px solid #dce3d5; background:var(--surface); border-radius:5px; padding:5px 7px; font-size:10px; }
+    .controls button { flex:1; }
+    .mode-note { font-size:9px !important; line-height:1.5; color:#8c9582 !important; }
+    .code { white-space:pre-wrap; overflow-wrap:anywhere; background:#eff3e8; border:1px solid #dfe6d4; color:#506142; padding:11px; border-radius:6px; font:10px/1.75 ui-monospace,monospace; }
+    .result-table { width:100%; border-collapse:collapse; font-size:10px; margin:14px 0; }
+    .result-table th,.result-table td { padding:9px 4px; border-bottom:1px solid #e1e6d9; text-align:left; }
+    .result-table th { color:#829072; font-weight:500; }
+    .result-table td { color:#516543; }
+    .sample-label { display:inline-block; border:1px solid #d8e0ce; padding:2px 6px; border-radius:4px; color:#859473; font:9px ui-monospace,monospace; margin-top:5px; }
+    .scenario { border-top:1px solid var(--line); padding:14px 20px; background:#f4f7ed; }
+    .scenario-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    .scenario-top span { color:#81916e; font:9px ui-monospace,monospace; letter-spacing:.5px; }
+    .scenario-top button { background:none; border:0; color:#8b977d; padding:0; font-size:10px; text-decoration:underline; text-underline-offset:3px; }
+    .scenario .secondary { background:#e8efdb; border-color:#d8e2c8; color:#526a3b; display:flex; align-items:center; justify-content:space-between; }
+    .scenario p { font-size:9px; color:#87957c; margin:7px 0 0; }
+    .close-inspector { display:none; border:0; background:none; font-size:20px; padding:0 4px; }
+    .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#2e4432; color:#f1f6e9; box-shadow:0 4px 20px #20332126; padding:11px 16px; border-radius:8px; max-width:min(520px,90vw); font-size:12px; z-index:5; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    [hidden] { display:none !important; }
+    /* Dark surfaces retain the same sage, amber, and blue participant accents. */
+    [data-theme="dark"] .preview { background:#223126; border-bottom:1px solid var(--line); }
+    [data-theme="dark"] .mark { background:#354c31; }
+    [data-theme="dark"] .room-link { background:#30422a; border-color:#536b42; }
+    [data-theme="dark"] .side-nav button:hover { background:#263329; }
+    [data-theme="dark"] .count,
+    [data-theme="dark"] .inline-code { background:#2a362b; }
+    [data-theme="dark"] .avatar { background:#433b2d; color:#e2cda9; }
+    [data-theme="dark"] .avatar.api { background:#34472b; color:#c0dda0; }
+    [data-theme="dark"] .avatar.review { background:#303c54; color:#bfd0f7; }
+    [data-theme="dark"] .decision-strip,
+    [data-theme="dark"] .scenario { background:#1d281e; }
+    [data-theme="dark"] .day::before,
+    [data-theme="dark"] .day::after { background:var(--line); }
+    [data-theme="dark"] .hash,
+    [data-theme="dark"] .side-nav button,
+    [data-theme="dark"] .room-goal p,
+    [data-theme="dark"] .local strong,
+    [data-theme="dark"] .decision-strip .icon,
+    [data-theme="dark"] .decision-strip .revision,
+    [data-theme="dark"] .day,
+    [data-theme="dark"] .byline time,
+    [data-theme="dark"] .card-kind,
+    [data-theme="dark"] .card-footer,
+    [data-theme="dark"] .compose-bottom span,
+    [data-theme="dark"] .compose-hint,
+    [data-theme="dark"] .tabs button,
+    [data-theme="dark"] .inspector-content p,
+    [data-theme="dark"] .metadata dt,
+    [data-theme="dark"] .checklist,
+    [data-theme="dark"] .result-table th,
+    [data-theme="dark"] .sample-label,
+    [data-theme="dark"] .scenario-top span,
+    [data-theme="dark"] .scenario-top button,
+    [data-theme="dark"] .scenario p { color:var(--muted); }
+    [data-theme="dark"] textarea::placeholder { color:var(--muted); }
+    [data-theme="dark"] .mode-note { color:var(--muted) !important; }
+    [data-theme="dark"] .decision-strip button,
+    [data-theme="dark"] .metadata dd,
+    [data-theme="dark"] .state-list,
+    [data-theme="dark"] .result-table td { color:#c0cfb4; }
+    [data-theme="dark"] .reply-button,
+    [data-theme="dark"] .check,
+    [data-theme="dark"] .text-button,
+    [data-theme="dark"] .tabs button[aria-pressed="true"] { color:var(--green); }
+    [data-theme="dark"] .tabs button[aria-pressed="true"] { box-shadow:0 2px var(--green); }
+    [data-theme="dark"] .type,
+    [data-theme="dark"] .badge { background:#314329; color:#c4dea5; }
+    [data-theme="dark"] .type.human,
+    [data-theme="dark"] .badge.amber { background:#443725; color:var(--amber); }
+    [data-theme="dark"] .badge.blue { background:#2d3c54; color:var(--blue); }
+    [data-theme="dark"] .task-card,
+    [data-theme="dark"] .card-footer,
+    [data-theme="dark"] .composer,
+    [data-theme="dark"] .worker-card,
+    [data-theme="dark"] .secondary,
+    [data-theme="dark"] .controls select,
+    [data-theme="dark"] .controls button,
+    [data-theme="dark"] .code,
+    [data-theme="dark"] .result-table th,
+    [data-theme="dark"] .result-table td,
+    [data-theme="dark"] .sample-label { border-color:var(--line); }
+    [data-theme="dark"] .task-card:hover,
+    [data-theme="dark"] .composer:focus-within { border-color:#86ac68; }
+    [data-theme="dark"] .queue-note { background:#2c2a20; border-color:#4e4931; color:#c2ba9c; }
+    [data-theme="dark"] .queue-note strong { color:#e0d4b1; }
+    [data-theme="dark"] .hypothesis,
+    [data-theme="dark"] .code { background:#263322; color:#c0d4a9; }
+    [data-theme="dark"] .bar { background:#344231; }
+    [data-theme="dark"] .bar span,
+    [data-theme="dark"] .status-dot { background:#a3c580; }
+    [data-theme="dark"] .status-dot.amber { background:var(--amber); }
+    [data-theme="dark"] .send { background:#bad797; color:#1b2915; }
+    [data-theme="dark"] .scenario .secondary { background:#344829; border-color:#536b42; color:#c8e5aa; }
+    [data-theme="dark"] .toast { background:#334a30; color:#edf5e6; border:1px solid #698952; box-shadow:0 4px 24px #0005; }
+    @media(max-width:1150px) { .room-actions { flex-direction:column; align-items:flex-end; gap:6px; } }
+    @media(min-width:1550px) { .app { grid-template-columns:228px minmax(400px,1fr) 360px; } .conversation { padding:24px 44px; } .compose-area { padding:0 40px 22px; } .room-header,.decision-strip { padding-left:44px; padding-right:44px; } .message { margin-bottom:28px; } .message p { font-size:14px; } }
+    @media(max-width:1150px) { .app { grid-template-columns:175px minmax(360px,1fr) 295px; } .sidebar { padding-left:12px; padding-right:12px; } .conversation,.room-header,.decision-strip { padding-left:20px; padding-right:20px; } .compose-area { padding-left:16px; padding-right:16px; } .inspector-content { padding:17px; } .brand { font-size:12px; } }
+    @media(max-width:950px) { .app { grid-template-columns:172px minmax(0,1fr); } .inspector { display:none; } .inspector.open { display:flex; position:fixed; right:0; top:43px; bottom:0; width:340px; max-width:100%; z-index:3; box-shadow:-12px 0 40px #34432a17; } .close-inspector { display:block; } }
+    @media(max-width:600px) { .preview { padding:8px 13px; align-items:start; font-size:9px; min-height:55px; } .preview strong { display:block; font-size:9px; margin:0 0 2px; } .app { display:flex; min-height:650px; height:calc(100dvh - 55px); } .sidebar { display:none; } .main { flex:1; } .room-header { padding:19px 16px 15px; } .room-header p { max-width:230px; font-size:10px; } h1 { font-size:20px; } .presence .avatar { display:none; } .presence button { font-size:10px; } .decision-strip { padding:10px 16px; } .conversation { padding:17px 16px; } .message { gap:9px; } .message p { font-size:12px; } .task-card { padding:12px; } .queue-note { margin-left:40px; } .inspector.open { top:55px; } .compose-bottom span { font-size:9px; } }
+    @media(prefers-reduced-motion:reduce) { .conversation { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 4H4v13h5l3 4 3-4h5Z"/><path d="M8 9h8M8 12h5"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4 19q-1 2 2 2h12q3 0 2-2L14 9V3M7 15h10"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 4v2"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="m9 3 9 4-3 6 1 4-6-3-3 2 1-6Zm1 11-5 7"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5ZM14 3v6h5M8 13h8M8 17h6"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14a9 9 0 0 1-10.5-10.5A9 9 0 1 0 20.5 14Z"/></symbol>
+  </defs></svg>
+  <header class="preview"><div><strong>INTERACTIVE WIREFRAME</strong> Sample conversation · simulated controls · no live agents</div><a href="architecture.html">Architecture ↗</a></header>
+  <div class="app">
+    <aside class="sidebar" aria-label="Room navigation">
+      <div class="brand"><span class="mark" aria-hidden="true">⌘</span><div>Agent Chat Room<small>LOCAL WORKSPACE</small></div></div>
+      <div class="side-label label"><span>Rooms</span><span>01</span></div>
+      <button class="room-link" data-action="conversation" aria-current="page"><span class="hash">#</span> cache-design</button>
+      <div class="room-caption">A place to think together.</div>
+      <div class="side-label label">In this room</div>
+      <nav class="side-nav" aria-label="Room views">
+        <button data-action="conversation"><svg class="icon"><use href="#i-chat"/></svg>Conversation</button>
+        <button data-panel="task"><svg class="icon"><use href="#i-flask"/></svg>Work & evidence <span class="count">1</span></button>
+        <button data-panel="participants"><svg class="icon"><use href="#i-people"/></svg>Participants <span class="count">3</span></button>
+        <button data-panel="decision"><svg class="icon"><use href="#i-pin"/></svg>Decisions <span class="count">1</span></button>
+      </nav>
+      <div class="room-goal"><div class="label">Shared goal</div><p>Settle cache invalidation behavior before changing the API.</p></div>
+      <div class="local"><strong>◉ &nbsp; Local room preview</strong>Agents work in their own terminals.</div>
+      <div class="identity"><div class="avatar">YO</div><div><strong>You</strong><small>Room owner · human</small></div></div>
+    </aside>
+    <main class="main">
+      <header class="room-header"><div><h1><span class="hash">#</span> cache-design</h1><p>Compare ideas. Try them out. Bring back evidence.</p></div><div class="room-actions"><div class="presence"><span class="avatar">YO</span><span class="avatar api">AP</span><span class="avatar review">RE</span><button data-panel="participants">3 participants</button></div><button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" title="Switch to dark mode"><svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>Dark mode</button></div></header>
+      <div class="decision-strip"><svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg><button data-panel="decision" id="pinned-decision">Compare both queue strategies before choosing one.</button><span class="revision" id="decision-version">DECISION v2</span></div>
+      <section class="conversation" id="conversation" aria-label="Room conversation" tabindex="0">
+        <div class="day">TODAY · SAMPLE SESSION</div>
+        <article class="message"><div class="avatar">YO</div><div class="message-body"><div class="byline"><strong>You</strong><span class="type human">Human</span><time>10:42</time></div><p>Could duplicate requests race here? I wonder if batching the refreshes would avoid repeated work.</p><button class="reply-button" data-panel="thread">↳ View discussion · 2 agent contributions</button></div></article>
+        <article class="message"><div class="avatar api">AP</div><div class="message-body"><div class="byline"><button data-person="api">API agent</button><span class="type">Agent</span><time>10:42</time></div><p>The refresh path in my workspace starts a new request for each caller. Batching might help. I’ll compare it with per-key coalescing under concurrent reads.</p><p>I’ve given a worker a small reproduction; I’m here for the discussion.</p>
+          <button class="task-card" data-panel="task" aria-label="Inspect experiment: duplicate refresh under contention"><div class="card-top"><span class="card-kind"><svg class="icon" aria-hidden="true"><use href="#i-flask"/></svg>EXPERIMENT · EXP-04</span><span class="badge amber" id="card-status">◷ Running</span></div><h3>Duplicate refresh under contention</h3><p>Batching vs. per-key coalescing · 100 simultaneous reads</p><div class="card-footer"><span class="avatar api mini">AP</span><span>API agent</span><span>·</span><span id="worker-summary">1 worker</span><span class="arrow">↗</span></div></button>
+        </div></article>
+        <article class="message"><div class="avatar review">RE</div><div class="message-body"><div class="byline"><button data-person="review">Review agent</button><span class="type">Agent</span><time>10:43</time></div><p>Batching can still duplicate work across batch boundaries. Could the comparison include a request arriving while a refresh is already in flight?</p><button class="reply-button" data-action="reply-review">↳ Reply to this point</button></div></article>
+        <article class="message"><div class="avatar api">AP</div><div class="message-body"><div class="byline"><button data-person="api">API agent</button><span class="type">Agent</span><time>10:43</time></div><p>Good case. I’ve added staggered arrivals to the comparison and updated the worker’s scope.</p></div></article>
+        <div class="queue-note" id="queue-note"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><div><strong>Review agent is reviewing a prior result.</strong><br><span id="queue-text">3 room events pending · available after its next receive call.</span></div></div>
+        <div id="added-messages"></div>
+      </section>
+      <div class="compose-area"><form class="composer" id="composer"><div class="reply-context" id="reply-context" hidden><span>Replying to Review agent · staggered arrivals</span><button type="button" id="cancel-reply" aria-label="Cancel reply">✕</button></div><label for="message-input" class="sr-only">Message the room</label><textarea id="message-input" placeholder="Share a thought with the room…" rows="2" maxlength="4000"></textarea><div class="compose-bottom"><span>Everyone can contribute. No @mention needed.</span><button class="send" id="send-button" type="submit" disabled>Send <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div></form><div class="compose-hint">Enter to send · Shift + Enter for a new line · Messages stay in this preview until reload</div></div>
+    </main>
+    <aside class="inspector" id="inspector" aria-label="Room details">
+      <div class="inspector-header"><h2>Room context <button class="close-inspector" id="close-inspector" aria-label="Close room details">×</button></h2><div class="tabs" role="group" aria-label="Context view"><button data-panel="task" id="tab-task" aria-pressed="true">Work</button><button data-panel="participants" id="tab-participants" aria-pressed="false">People & agents</button><button data-panel="decision" id="tab-decision" aria-pressed="false">Decision</button></div></div>
+      <div class="inspector-content" id="inspector-content" tabindex="-1"></div>
+      <div class="scenario"><div class="scenario-top"><span id="scenario-step">EXPLORE THE FLOW · 1 OF 4</span><button id="reset-example">Reset</button></div><button class="secondary" id="advance-example"><span id="advance-label">Simulate experiment result</span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button><p>Scripted sample data. No code or agent is running.</p></div>
+    </aside>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+  <script>
+    const $ = selector => document.querySelector(selector);
+    function syncThemeToggle() {
+      const dark = document.documentElement.dataset.theme === 'dark';
+      $('#theme-toggle').setAttribute('aria-pressed', String(dark));
+      $('#theme-toggle').title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+    $('#theme-toggle').addEventListener('click', () => {
+      themePreference = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = themePreference;
+      try { localStorage.setItem(themeStorageKey, themePreference); } catch { /* Keep this tab's selection. */ }
+      syncThemeToggle();
+    });
+    systemTheme?.addEventListener('change', event => {
+      if (themePreference !== null) return;
+      document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
+      syncThemeToggle();
+    });
+    syncThemeToggle();
+    const state = {stage:0, panel:'task', reply:false, cancellation:false, accepted:false, pending:3, decision:2, paused:{api:false,review:false}, modes:{api:'active',review:'active'}};
+    let toastTimer, panelTrigger;
+    const experimentTitle = 'Duplicate refresh under contention';
+    const names = {api:'API agent',review:'Review agent',you:'You'};
+    function notify(text) { const toast = $('#toast'); toast.textContent = text; toast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, 5500); }
+    function announce(text) { $('#announcement').textContent = text; }
+    function badge(text,kind='') { return `<span class="badge ${kind}">${text}</span>`; }
+    function taskPanel() {
+      const done = state.stage > 0;
+      const status = state.accepted ? 'Accepted for follow-up' : done ? 'Ready for review' : 'Running';
+      return `<div class="label">Experiment / EXP-04</div><h3>${experimentTitle}</h3>${badge(status,done?'blue':'amber')}
+        <dl class="metadata"><dt>Owner</dt><dd class="person-line"><span class="avatar api mini">AP</span>API agent</dd><dt>Workspace</dt><dd>cache-api / experiment/coalesce</dd><dt>Decision</dt><dd>Based on v2${state.decision===3?' · current is v3':''}</dd><dt>Scope</dt><dd>Bounded prototype · separate worktree</dd></dl>
+        ${state.decision===3?'<p class="hypothesis">Based on an earlier decision. Review applicability to v3 before accepting this result.</p>':''}
+        <div class="label">Working hypothesis</div><div class="hypothesis">Batching refreshes will eliminate duplicate upstream requests under contention.</div>
+        <div class="section"><div class="label">Comparison plan</div><ul class="checklist"><li><span class="check">✓</span>Reproduce simultaneous cache misses</li><li><span class="check">✓</span>Compare batch and per-key strategies</li><li><span class="check">${done?'✓':'◷'}</span>Include arrivals across batch boundaries</li><li><span class="check">${done?'✓':'○'}</span>Publish reproduction and findings</li></ul></div>
+        <div class="section"><div class="label">Delegated work</div><div class="worker-card"><strong>↳ Contention prototype ${badge(done?'Complete':'Running',done?'':'amber')}</strong><p>Worker of API agent · isolated worktree</p><div class="bar" aria-hidden="true"><span style="width:${done?100:50}%"></span></div><p>${done?'4 of 4 sample checks complete':'2 of 4 sample checks complete'} · agent-reported</p></div></div>
+        <div class="section">${done?'<button class="secondary" data-panel="evidence">Inspect result & evidence ↗</button>':`<p>The parent remains a conversation participant while its worker explores.</p><button class="text-button" data-action="cancel-task" ${state.cancellation?'disabled':''}>${state.cancellation?'Cancellation requested · unconfirmed':'Request task cancellation'}</button>`}${state.cancellation?'<p>Request recorded in this preview. Execution remains unconfirmed until the runtime reports it.</p>':''}</div>`;
+    }
+    function personCard(id, subtitle, context) {
+      const paused = state.paused[id];
+      const waiting = id === 'api' || state.stage >= 2;
+      const activity = id === 'api' ? (state.stage ? 'Discussing experiment result' : 'Discussing · 1 delegated task') : (state.stage >= 2 ? 'Discussing · sample review complete' : 'Reviewing prior result');
+      return `<article class="participant" id="person-${id}"><div class="participant-title"><div class="avatar ${id}">${id==='api'?'AP':'RE'}</div><div><strong>${names[id]}</strong><small>${subtitle}</small></div></div><p>${context}</p><div class="state-list"><span><i class="status-dot"></i>Adapter connected</span><span><i class="status-dot ${paused||!waiting?'amber':''}"></i>${paused?'Delivery paused':waiting?'Receiving room events':`No receive call waiting · ${state.pending} pending`}</span><span>Reported: ${activity}</span></div><label class="sr-only" for="mode-${id}">${names[id]} participation mode</label><div class="controls"><select id="mode-${id}" data-mode="${id}"><option value="active" ${state.modes[id]==='active'?'selected':''}>Active</option><option value="observe" ${state.modes[id]==='observe'?'selected':''}>Observe</option></select><button data-pause="${id}">${paused?'Resume delivery':'Pause delivery'}</button></div><p class="mode-note">${paused?'Holds future room delivery. Running work continues.':state.modes[id]==='observe'?'Observe: respond when invited; no unsolicited tasks.':'Active: contribute and identify bounded work within the agreed scope.'}</p><p class="mode-note">Mode changes take effect when received. All status is sample data.</p></article>`;
+    }
+    function participantsPanel() {
+      return `<div class="label">1 human · 2 terminal sessions</div><article class="participant"><div class="participant-title"><div class="avatar">YO</div><div><strong>You</strong><small>Human · room owner</small></div></div></article>
+        ${personCard('api','Codex · cache-api','Context: cache refresh path, request coalescing, and API tests.')}
+        ${personCard('review','Codex · cache-review','Context: concurrency edge cases and an independent review worktree.')}
+        <div class="section"><div class="label">How participation works</div><p>Main agents speak in the room. Workers appear on their tasks. Different model clients can use the same proposed room API after their integration is validated.</p><p>Resuming delivery does not wake a stopped receive loop. That agent may need a prompt in its terminal.</p></div>`;
+    }
+    function evidencePanel() {
+      if (!state.stage) return `<div class="label">Evidence / EXP-04</div><h3>Experiment is still running.</h3><p>No result has been published in this sample yet. Use “Simulate experiment result” below to continue the scenario.</p><button class="secondary" data-panel="task">Back to experiment</button>`;
+      return `<div class="label">Evidence / ART-04</div><h3>Batching leaves a boundary race.</h3>${badge('Hypothesis contradicted','blue')} <span class="sample-label">ILLUSTRATIVE DATA</span><p>Sample comparison: 100 reads of the same missing key, with some arrivals after the first batch starts.</p>
+        <table class="result-table"><caption class="sr-only">Illustrative upstream requests in the sample experiment</caption><thead><tr><th scope="col">Strategy</th><th scope="col">Upstream calls</th></tr></thead><tbody><tr><td>Without coordination</td><td>100</td></tr><tr><td>Batching</td><td>2</td></tr><tr><td>Per-key coalescing</td><td>1</td></tr></tbody></table>
+        <p>Illustrative observations, not measurements from this repository. This says nothing yet about latency or cross-process behavior.</p>
+        <div class="section"><div class="label">Artifact snapshot</div><dl class="metadata"><dt>Published by</dt><dd>API agent</dd><dt>Base revision</dt><dd>sample-base-04</dd><dt>Files</dt><dd>coalescing.patch · contention.log</dd><dt>Decision</dt><dd>v2${state.decision===3?' · earlier than current v3':''}</dd></dl><pre class="code">// Illustrative patch excerpt
+if (inFlight.has(key)) {
+  return inFlight.get(key);
+}
+const pending = refresh(key);
+inFlight.set(key, pending);
+try { return await pending; }
+finally { inFlight.delete(key); }</pre><p>Selected snapshot only. Full code and test harness would be attached to a real published artifact.</p></div>
+        <div class="section"><div class="label">Reproduction · sample command</div><pre class="code">npm test -- contention.spec.ts</pre><p>This command describes the fictional cache workspace; it is not a test in this project.</p><button class="secondary" data-action="download-evidence">Download sample evidence</button></div>
+        <div class="section"><div class="label">Review</div><p>${state.stage>=2?'Review agent reported an independent reproduction in this scripted scenario.':'Waiting for an independent reproduction.'}</p><button class="secondary" data-action="accept-result" ${state.accepted?'disabled':''}>${state.accepted?'Accepted for follow-up · sample':'Accept for follow-up'}</button><p>Acceptance records your assessment. Integrating the patch is a separate task.</p></div>`;
+    }
+    function decisionPanel() {
+      const latest = state.decision === 3;
+      return `<div class="label">Decision / DEC-02 · v${state.decision}</div><h3>${latest?'Follow up on per-key coalescing.':'Compare both strategies first.'}</h3>${badge('Recorded by You')}<div class="hypothesis">${latest?'Use per-key coalescing as the next candidate. Validate failure cleanup and latency before integration.':'Compare batching and per-key coalescing with both simultaneous and staggered arrivals before choosing an implementation.'}</div><dl class="metadata"><dt>Author</dt><dd>You · human</dd><dt>Evidence</dt><dd>${latest?'ART-04 + Review agent’s sample finding':'Discussion + proposed experiment EXP-04'}</dd><dt>Dissent</dt><dd>No dissent recorded. Consensus has not been inferred.</dd></dl><div class="section"><div class="label">Open questions</div><ul class="checklist"><li><span>○</span>Does rejection always clean up the in-flight entry?</li><li><span>○</span>What is the latency cost under sustained load?</li></ul></div><div class="section"><div class="label">Revision history</div><p>v1 · Investigate duplicate refreshes.</p><p>v2 · Add staggered arrivals to both comparisons.</p>${latest?'<p>v3 · Follow up on per-key coalescing; integration remains separate.</p>':''}</div><button class="secondary" data-panel="task">Inspect linked experiment ↗</button>`;
+    }
+    function threadPanel() {
+      return `<div class="label">Discussion / duplicate requests</div><h3>What happens across batch boundaries?</h3><div class="hypothesis">You: “Could duplicate requests race here?”</div><div class="section"><div class="person-line"><span class="avatar api mini">AP</span><strong>API agent</strong></div><p>Hypothesis: batching can eliminate repeated refreshes. Proposed comparing it with per-key coalescing.</p></div><div class="section"><div class="person-line"><span class="avatar review mini">RE</span><strong>Review agent</strong></div><p>Counterpoint: a later batch can arrive while the original request is in flight.</p></div><div class="section"><div class="label">Resolve with evidence</div><p>The experiment now includes staggered arrivals. A concrete reproduction lets everyone inspect the same claim.</p><button class="secondary" data-panel="task">Inspect experiment ↗</button></div><div class="section"><button class="secondary" data-action="reply-review">Reply in the room</button></div>`;
+    }
+    function showPanel(panel, moveFocus=false) {
+      state.panel = panel;
+      const renderers = {task:taskPanel,participants:participantsPanel,evidence:evidencePanel,decision:decisionPanel,thread:threadPanel};
+      $('#inspector-content').innerHTML = renderers[panel]();
+      const tab = ['evidence','thread'].includes(panel) ? 'task' : panel;
+      document.querySelectorAll('.tabs button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.panel === tab)));
+      if (moveFocus) { panelTrigger = document.activeElement; $('#inspector').classList.add('open'); $('#inspector-content').focus(); }
+    }
+    function closeInspector() { $('#inspector').classList.remove('open'); if (panelTrigger?.isConnected) panelTrigger.focus(); }
+    function scrollConversation() { const conversation = $('#conversation'); conversation.scrollTop = conversation.scrollHeight; }
+    function appendMessage(author, text, {reply=false, action=null, scripted=false}={}) {
+      const article = document.createElement('article'); article.className = 'message'; if (scripted) article.dataset.scripted = 'true';
+      const avatar = document.createElement('div'); avatar.className = `avatar ${author==='you'?'':author}`; avatar.textContent = {you:'YO',api:'AP',review:'RE'}[author];
+      const body = document.createElement('div'); body.className = 'message-body';
+      const byline = document.createElement('div'); byline.className = 'byline';
+      const name = document.createElement('strong'); name.textContent = names[author];
+      const type = document.createElement('span'); type.className = `type ${author==='you'?'human':''}`; type.textContent = author==='you'?'Human':'Agent';
+      const time = document.createElement('time'); time.textContent = scripted ? 'Sample' : 'Now · preview';
+      byline.append(name,type,time); body.append(byline);
+      if (reply) { const reference = document.createElement('div'); reference.className='reply-context'; reference.textContent='↳ In reply to Review agent · staggered arrivals'; body.append(reference); }
+      const p = document.createElement('p'); p.textContent=text; p.style.whiteSpace='pre-wrap'; body.append(p);
+      if (action) { const button=document.createElement('button'); button.className='reply-button'; button.dataset.panel=action.panel; button.textContent=action.label; body.append(button); }
+      article.append(avatar,body); $('#added-messages').append(article); scrollConversation();
+      announce(`${names[author]}: ${text}`);
+    }
+    function updateScenario() {
+      $('#card-status').textContent = state.accepted ? '✓ Accepted for follow-up' : state.stage ? '↗ Ready for review' : '◷ Running';
+      $('#card-status').className=`badge ${state.stage?'blue':'amber'}`;
+      $('#worker-summary').textContent=state.stage?'1 worker completed':'1 worker';
+      $('#scenario-step').textContent=`EXPLORE THE FLOW · ${state.stage+1} OF 4`;
+      $('#advance-label').textContent=['Simulate experiment result','Simulate peer review','Record sample decision','Example complete'][state.stage];
+      $('#advance-example').disabled=state.stage===3;
+      $('#queue-note').hidden=state.stage>=2;
+      $('#queue-text').textContent=`${state.pending} room events pending · available after its next receive call.`;
+      $('#decision-version').textContent=`DECISION v${state.decision}`;
+      $('#pinned-decision').textContent=state.decision===3?'Follow up on coalescing; validate failure cleanup before integration.':'Compare both queue strategies before choosing one.';
+    }
+    function advance() {
+      if (state.stage>=3) return;
+      if (state.stage===1 && state.paused.review) { notify('Resume Review agent’s delivery before continuing this sample catch-up.'); showPanel('participants'); return; }
+      state.stage++;
+      if (state.stage===1) {
+        state.pending++;
+        appendMessage('api','The staggered-arrival case contradicted my initial hypothesis. Batching still made 2 upstream calls; per-key coalescing made 1. I’ve published the sample comparison and patch for review.',{scripted:true,action:{panel:'evidence',label:'↳ Inspect sample evidence · ART-04'}});
+        showPanel('evidence');
+      } else if (state.stage===2) {
+        state.pending=0;
+        appendMessage('review','I caught up on the queued discussion and reproduced the sample outcome. Coalescing handles this case. Before integration, we should also verify that failed refreshes remove the in-flight entry.',{scripted:true,action:{panel:'evidence',label:'↳ Review evidence · ART-04'}});
+        showPanel('evidence');
+      } else {
+        state.decision=3;
+        appendMessage('you','Decision v3: follow up on per-key coalescing. Validate rejection cleanup and latency before integration. Keep the experiment linked so we can revisit the evidence.',{scripted:true,action:{panel:'decision',label:'↳ Open decision v3'}});
+        showPanel('decision');
+      }
+      updateScenario(); notify('Scripted example advanced. No agent or code was executed.');
+    }
+    function reset() {
+      Object.assign(state,{stage:0,cancellation:false,accepted:false,pending:3,decision:2,paused:{api:false,review:false},modes:{api:'active',review:'active'}});
+      document.querySelectorAll('[data-scripted]').forEach(node=>node.remove());
+      updateScenario(); showPanel('task'); notify('Example reset. Your draft and locally composed messages are preserved.');
+    }
+    function setReply() { state.reply=true; $('#reply-context').hidden=false; closeInspector(); $('#message-input').focus(); }
+    function downloadEvidence() {
+      const evidence = 'ILLUSTRATIVE WIREFRAME DATA — NOT AN EXECUTED TEST\n\nExperiment EXP-04 / artifact ART-04\nBase revision: sample-base-04\nDecision: v2\n\nHypothesis: batching eliminates duplicate refreshes.\nScenario: 100 same-key cache misses with staggered arrivals.\nSample observations: no coordination 100 calls; batching 2; per-key coalescing 1.\nConclusion in this fictional scenario: hypothesis contradicted.\nLimitations: one process; no latency or failure-cleanup evaluation.\n\nSample reproduction command in the fictional cache workspace:\nnpm test -- contention.spec.ts\n\nThis preview contains no complete patch or runnable reproduction harness.\n';
+      const url=URL.createObjectURL(new Blob([evidence],{type:'text/plain'})); const link=document.createElement('a'); link.href=url; link.download='EXP-04-sample-evidence.txt'; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); notify('Downloaded illustrative evidence; no test was executed.');
+    }
+    document.addEventListener('click', event => {
+      const button=event.target.closest('button'); if(!button) return;
+      if(button.dataset.panel) showPanel(button.dataset.panel,true);
+      if(button.dataset.person) { showPanel('participants',true); document.getElementById(`person-${button.dataset.person}`).scrollIntoView({block:'nearest'}); }
+      if(button.dataset.pause) { const id=button.dataset.pause; state.paused[id]=!state.paused[id]; showPanel('participants'); $(`[data-pause="${id}"]`).focus(); notify(`${names[id]}: delivery ${state.paused[id]?'paused':'resumed'} in this simulation. ${state.paused[id]?'Running work is unchanged.':'A stopped receive loop still needs terminal input.'}`); }
+      switch(button.dataset.action) {
+        case 'conversation': closeInspector(); $('#conversation').focus(); break;
+        case 'reply-review': setReply(); break;
+        case 'cancel-task': state.cancellation=true; showPanel('task'); $('#inspector-content').focus(); notify('Cancellation requested in preview. Runtime confirmation is pending.'); break;
+        case 'download-evidence': downloadEvidence(); break;
+        case 'accept-result': state.accepted=true; updateScenario(); showPanel('evidence'); $('#inspector-content').focus(); notify('Marked accepted for follow-up in preview. No patch was applied.'); break;
+      }
+    });
+    document.addEventListener('change', event => { const id=event.target.dataset.mode; if(id) { state.modes[id]=event.target.value; showPanel('participants'); $(`#mode-${id}`).focus(); notify(`${names[id]}: ${state.modes[id]} mode requested in preview; applies when received.`); } });
+    $('#advance-example').addEventListener('click',advance);
+    $('#reset-example').addEventListener('click',reset);
+    $('#close-inspector').addEventListener('click',closeInspector);
+    document.addEventListener('keydown',event=>{if(event.key==='Escape') closeInspector();});
+    $('#cancel-reply').addEventListener('click',()=>{state.reply=false;$('#reply-context').hidden=true;$('#message-input').focus();});
+    $('#message-input').addEventListener('input',()=>{$('#send-button').disabled=!$('#message-input').value.trim();});
+    $('#message-input').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('#composer').requestSubmit();}});
+    $('#composer').addEventListener('submit',event=>{event.preventDefault();const text=$('#message-input').value.trim();if(!text)return;appendMessage('you',text,{reply:state.reply});$('#message-input').value='';$('#send-button').disabled=true;state.reply=false;$('#reply-context').hidden=true;if(state.stage<2){state.pending++;updateScenario();}if(state.panel==='participants')showPanel('participants');$('#message-input').focus();notify('Added to this preview only. No message was sent to an agent.');});
+    showPanel('task'); updateScenario();
+  </script>
+</body>
+</html>

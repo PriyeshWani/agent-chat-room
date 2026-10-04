@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local MCP round-trip</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Local MCP round-trip</h1>
+    <p>Send a message here. Codex receives it through MCP and sends its reply back.</p>
+    <p id="status" role="status">Connecting to the local bridge…</p>
+    <form id="composer">
+      <label for="message">Message to the agent</label>
+      <textarea id="message" maxlength="4000" required rows="3" placeholder="What is 17 × 23? Explain briefly."></textarea>
+      <button type="submit">Send</button>
+      <span id="error" role="alert"></span>
+    </form>
+    <p class="note">Codex is instructed to keep listening between replies. Send <code>/stop</code> to ask it to stop. This uses repeated waiting MCP tool calls; it does not wake an idle Codex session.</p>
+    <section aria-label="Messages"><ol id="messages"></ol></section>
+    <p class="note">Localhost only · History is cleared when the bridge stops.</p>
+  </main>
+</body>
+</html>
