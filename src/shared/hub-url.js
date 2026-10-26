@@ -1,5 +1,4 @@
-// LAN hosting is explicit and limited to literal private IPv4 addresses.
-// No DNS lookup, forwarding, or changes to the terminal's network policy.
+// Plain HTTP is limited to local/private addresses. Remote hubs require HTTPS.
 export function privateIpv4(host) {
   const parts = host.split('.');
   if (parts.length !== 4 || parts.some(part => !/^(0|[1-9]\d{0,2})$/.test(part) || Number(part) > 255)) return false;
@@ -9,9 +8,18 @@ export function privateIpv4(host) {
 
 export function parseHubUrl(value) {
   const url = new URL(value);
-  if (url.protocol !== 'http:' || !(url.hostname === '127.0.0.1' || privateIpv4(url.hostname))
+  const local = url.hostname === '127.0.0.1' || privateIpv4(url.hostname);
+  const remote = url.protocol === 'https:' && url.hostname.includes('.') && !local
+    && !/^\d+(?:\.\d+){3}$/.test(url.hostname);
+  if (!(url.protocol === 'http:' && local) && !remote
     || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    throw new TypeError('Hub URL must be an HTTP root URL using 127.0.0.1 or a private LAN IPv4 address.');
+    throw new TypeError('Hub URL must be a local/private HTTP root URL or a remote HTTPS root URL.');
   }
+  return url;
+}
+
+export function parsePublicUrl(value) {
+  const url = parseHubUrl(value);
+  if (url.protocol !== 'https:') throw new TypeError('Public hub URL must use HTTPS.');
   return url;
 }

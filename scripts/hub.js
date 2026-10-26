@@ -9,7 +9,8 @@ try {
   }
   const filename = resolve(process.env.ROOM_HUB_DATA ?? '.agent-chat-room/hub.sqlite');
   const lanHost = process.env.ROOM_HUB_LAN_HOST ?? null;
-  const hub = await createHub({ filename, port: Number(configuredPort), lanHost });
+  const externalUrl = process.env.ROOM_HUB_PUBLIC_URL ?? null;
+  const hub = await createHub({ filename, port: Number(configuredPort), lanHost, externalUrl });
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
@@ -22,6 +23,7 @@ try {
   process.on('SIGTERM', stop);
   process.stdout.write(`ROOM_HUB_READY ${hub.url}\n`);
   if (lanHost) process.stdout.write(`ROOM_HUB_LAN ${hub.publicUrl}\n`);
+  if (externalUrl) process.stdout.write(`ROOM_HUB_PUBLIC ${hub.publicUrl}\n`);
 } catch {
   process.stderr.write('Room hub failed to start. Check its port and data path.\n');
   process.exitCode = 1;

@@ -3,9 +3,10 @@ import { ZodError } from 'zod';
 import { Outputs } from '../shared/schemas.js';
 import { ApiError, LIMITS, success, failure } from '../shared/protocol.js';
 import { legacyMessageResult } from './client-compatibility.js';
-import { privateIpv4 } from '../shared/hub-url.js';
+import { privateIpv4, parsePublicUrl } from '../shared/hub-url.js';
 
-export async function createHttpServer({ port = 0, lanHost = null, host = lanHost ? '0.0.0.0' : '127.0.0.1', handlers = [], assets, onError } = {}) {
+export async function createHttpServer({ port = 0, lanHost = null, externalUrl = null, host = lanHost ? '0.0.0.0' : '127.0.0.1', handlers = [], assets, onError } = {}) {
+  const external = externalUrl === null ? null : parsePublicUrl(externalUrl);
   if (lanHost !== null && !privateIpv4(lanHost)) throw new TypeError('LAN host must be a private IPv4 address.');
   if (host !== '127.0.0.1' && !(lanHost && host === '0.0.0.0')) throw new TypeError('Use 127.0.0.1 for local mode or explicit LAN configuration.');
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new TypeError('Invalid port.');
@@ -33,7 +34,15 @@ export async function createHttpServer({ port = 0, lanHost = null, host = lanHos
       response.end(JSON.stringify(envelope));
     }
     try {
-      const requestOrigin = `http://${request.headers.host}`;
+      const isExternal = external && request.headers.host === external.host;
+      const requestOrigin = isExternal ? external.origin : `http://${request.headers.host}`;
+      // A reverse proxy must retain the public Host. Never grant localhost
+      // privileges to a forwarded request, regardless of forwarding values.
+      const forwarded = ['forwarded', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'cf-connecting-ip']
+        .some(header => request.headers[header] !== undefined);
+      if (external && request.headers.host === authority && forwarded) {
+        throw new ApiError('FORBIDDEN', 'Forwarded requests must use the public Host.', { status: 403 });
+      }
       if (!allowedAuthorities.has(request.headers.host) || (request.headers.origin !== undefined && request.headers.origin !== requestOrigin)) {
         throw new ApiError('FORBIDDEN', 'Request Host or Origin is not allowed.', { status: 403 });
       }
@@ -62,7 +71,7 @@ export async function createHttpServer({ port = 0, lanHost = null, host = lanHos
         try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
         catch { throw new ApiError('VALIDATION_ERROR', 'Request body must contain valid JSON.'); }
       }
-      const context = { request, response, url, path, method, body, signal: controller.signal };
+      const context = { request, response, url, path, method, body, secure: Boolean(isExternal), signal: controller.signal };
       let result;
       if (path === '/api/v1/health' && method === 'GET') {
         result = { schema: 'health', data: { status: 'ok', version: '1' } };
@@ -99,8 +108,9 @@ export async function createHttpServer({ port = 0, lanHost = null, host = lanHos
   });
   authority = `127.0.0.1:${server.address().port}`;
   origin = `http://${authority}`;
-  publicUrl = lanHost ? `http://${lanHost}:${server.address().port}` : origin;
-  allowedAuthorities = new Set([authority, new URL(publicUrl).host]);
+  publicUrl = external?.origin ?? (lanHost ? `http://${lanHost}:${server.address().port}` : origin);
+  allowedAuthorities = new Set([authority, new URL(publicUrl).host,
+    ...(lanHost ? [`${lanHost}:${server.address().port}`] : [])]);
   return {
     server, url: origin, publicUrl,
     close() {

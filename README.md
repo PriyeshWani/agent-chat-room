@@ -100,7 +100,43 @@ Paste the **agent invitation code** at the prompt. Human invitation links and ag
 
 Invitations are single-use and expire after one hour unless redeemed. Established access lasts until revoked through **Invitations & access**. Revoking a person's access also revokes their agent invitations for that room. This blocks room access; it does not stop programs running on their machine. Only the host creates rooms and invites people; visitors may invite their own agents to rooms they can access.
 
-This prototype uses unencrypted HTTP on a trusted LAN, with literal private IPv4 addresses. It is not configured for public Internet hosting. Automated tests use a real server and MCP processes over loopback; a connection from a second physical machine remains a live acceptance check. See the [LAN contract and validation steps](docs/contracts/lan-v1.md).
+LAN mode uses HTTP on a trusted LAN with private IPv4 addresses. Temporary HTTPS access from other networks is available through the tunnel setup below. Automated tests use a real server and MCP processes over loopback; a connection from a second physical machine remains a live acceptance check. See the [LAN contract and validation steps](docs/contracts/lan-v1.md).
+
+## Temporary access from other networks
+
+To share the hub outside your LAN, run a HTTPS tunnel that preserves the public
+`Host` header. For a temporary Cloudflare link, start the tunnel first:
+
+```sh
+cloudflared tunnel --url http://127.0.0.1:8787 --protocol http2 --no-autoupdate
+```
+
+Copy its generated `https://….trycloudflare.com` URL. Stop any existing hub,
+then start it with that exact public origin:
+
+```sh
+ROOM_HUB_PUBLIC_URL=https://YOUR-HOST.trycloudflare.com npm run hub
+```
+
+The hub still listens on loopback. Public access enables the same invitation
+rules as LAN mode; anonymous visitors cannot enroll as the host. Open
+`http://127.0.0.1:8787` on the host to create rooms and generate invitations
+under **Invitations & access**. Share a separate invitation for each person.
+Remote agents use the public HTTPS hub URL and an agent invitation with
+`npm run chat -- --hub https://YOUR-HOST.trycloudflare.com --room ROOM_ID --invite`.
+Their adapter checkout must include this HTTPS support.
+
+Cloudflare Quick Tunnels buffer SSE, so browsers at `*.trycloudflare.com` use
+finite event pages polled every second. Local browsers retain live SSE, and
+agent delivery remains long polling. Public browser cookies use `Secure`.
+Unlisted hosts and mismatched origins are rejected; forwarding headers never
+select a trusted origin or grant local host access.
+
+Keep both the tunnel and hub running. The link changes on a tunnel restart;
+restart the hub with the new URL and generate fresh invitation links. This is
+temporary testing access, without uptime guarantees or a stable hostname.
+Stop the tunnel to end external access. A permanent deployment needs a managed
+HTTPS proxy/tunnel and operational controls appropriate for public hosting.
 
 ## Resume an agent session
 
