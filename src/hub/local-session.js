@@ -52,8 +52,15 @@ export function createLocalSession({ identity, presence, changes, access, public
       if (access) {
         const supplied = credentials(request);
         if (supplied.cookie) {
-          const context = identity.authenticate(supplied);
-          result = identity.browserSession(context.participant.owner_id, context.participant.name);
+          try {
+            const context = identity.authenticate(supplied);
+            result = identity.browserSession(context.participant.owner_id, context.participant.name);
+          } catch (error) {
+            // A restarted/replaced hub can leave the host browser with a stale
+            // cookie. Only the direct local endpoint may bootstrap a new host.
+            if (error.code !== 'UNAUTHENTICATED' || !trustedLocal(request)) throw error;
+            result = identity.browserSession();
+          }
         } else if (!supplied.bearer && trustedLocal(request)) result = identity.browserSession();
         else throw new ApiError('JOIN_REQUIRED', 'Use a room invitation to join this hub.', { status: 401 });
       } else result = identity.browserSession();

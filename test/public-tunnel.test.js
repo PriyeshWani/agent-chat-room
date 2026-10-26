@@ -10,6 +10,14 @@ test('HTTPS tunnel keeps host enrollment local and enforces invited room access'
   const hub = await createHub({ filename: ':memory:', externalUrl: 'https://fixture.trycloudflare.com' });
   t.after(() => hub.close());
   const { client: host } = await browserClient(hub.url);
+  const staleLocal = await loopbackFetch(`${hub.url}/api/v1/sessions/browser`, {
+    method: 'POST', headers: { Origin: hub.url, 'Content-Type': 'application/json', Cookie: 'acr_session=stale' }, body: '{}' });
+  assert.equal(staleLocal.status, 200);
+  assert.equal((await staleLocal.json()).data.access.can_invite_people, true);
+  const staleRemote = await loopbackFetch(`${hub.url}/api/v1/sessions/browser`, {
+    method: 'POST', headers: { Host: 'fixture.trycloudflare.com', Origin: hub.publicUrl,
+      'Content-Type': 'application/json', Cookie: 'acr_session=stale' }, body: '{}' });
+  assert.equal(staleRemote.status, 401);
   const room = await host.createRoom({ name: 'Shared' });
   const privateRoom = await host.createRoom({ name: 'Private' });
   const guest = lanBrowser(hub);
