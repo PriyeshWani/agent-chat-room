@@ -33,13 +33,14 @@ function credentials(request) {
   return { ...(bearer === undefined ? {} : { bearer }), ...(cookie === undefined ? {} : { cookie }) };
 }
 
-export function createLocalSession({ identity, presence, changes, access, publicUrl }) {
+export function createLocalSession({ identity, presence, changes, access, publicUrl, emailEnabled = false }) {
   const trustedLocal = request => ['127.0.0.1', '::ffff:127.0.0.1'].includes(request?.socket?.remoteAddress)
     && /^127\.0\.0\.1(?::\d+)?$/.test(request.headers.host);
   function browserResult(result) {
     if (!access) return result;
     return { ...result, access: { mode: 'lan', public_url: publicUrl(),
-      can_create_rooms: access.isHost(result.participant), can_invite_people: access.isHost(result.participant) } };
+      can_create_rooms: access.isHost(result.participant), can_invite_people: result.participant.kind === 'human',
+      email_enabled: emailEnabled } };
   }
   return {
     authenticate(request) {

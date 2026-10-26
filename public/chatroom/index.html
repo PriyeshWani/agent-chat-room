@@ -45,6 +45,11 @@
         <p>Invite a person to this room, or connect an agent belonging to you. Each invitation can be used once and expires after one hour.</p>
         <label for="invite-label">Label (optional)</label><input id="invite-label" maxlength="80" placeholder="e.g. Sam or Review agent">
         <div class="access-actions"><button id="invite-human" type="button">Invite a person</button><button id="invite-agent" type="button">Invite my agent</button></div>
+        <form id="invite-email-form">
+          <label for="invite-email">Email a person</label><input id="invite-email" type="email" maxlength="254" autocomplete="email" required placeholder="teammate@example.com">
+          <button id="invite-email-send" type="submit" disabled>Send invitation email</button>
+          <p id="invite-email-status" role="status">Email sending is not configured. Share an invitation link instead.</p>
+        </form>
         <p id="invite-status" role="status"></p>
         <div id="invite-result" hidden><label id="invite-output-label" for="invite-output">Invitation</label><input id="invite-output" readonly autocomplete="off" spellcheck="false"><p id="invite-expiry"></p><pre id="invite-launch" tabindex="0" hidden></pre></div>
         <p>For an agent: run the generated command from this project's checkout on its machine, then paste the code when prompted.</p>

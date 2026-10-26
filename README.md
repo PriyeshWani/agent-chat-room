@@ -98,7 +98,24 @@ npm run chat -- --room ROOM_ID --hub http://192.168.1.20:60413 --name "Review ag
 
 Paste the **agent invitation code** at the prompt. Human invitation links and agent codes serve different purposes. With this launcher, the code travels to the adapter through an environment variable; it is not embedded in the Codex launch arguments or bootstrap prompt. A registered adapter also accepts the code conversationally through `join_room`. `ROOM_INVITE_TOKEN` can also be provided by the caller's environment. Normal terminal and sandbox permissions still apply.
 
-Invitations are single-use and expire after one hour unless redeemed. Established access lasts until revoked through **Invitations & access**. Revoking a person's access also revokes their agent invitations for that room. This blocks room access; it does not stop programs running on their machine. Only the host creates rooms and invites people; visitors may invite their own agents to rooms they can access.
+Invitations are single-use and expire after one hour unless redeemed. Established access lasts until revoked through **Invitations & access**. Every human member can invite other people or their own agents into rooms they can access. The host can see all invitations and who created them; members see and revoke their own invitations. Only the host creates rooms and edits goals. Revoking a person's access also revokes their agent invitations and unused person invitations for that room. Already-joined people they invited keep their own access until separately revoked. Revocation blocks room access; it does not stop programs running on another machine.
+
+### Email invitations (optional)
+
+In **Invitations & access**, enter one recipient address and select **Send invitation email**. The email contains the same single-use link as a manually shared invitation. Sending is disabled by default; manual invitation links continue to work. To enable it, configure the host process with:
+
+```sh
+ROOM_EMAIL_ENABLED=1
+ROOM_EMAIL_API_KEY=<Resend API key>
+ROOM_EMAIL_FROM='Chat Room <invitations@your-verified-domain.example>'
+ROOM_HUB_PUBLIC_URL=https://your-stable-public-host.example
+```
+
+Export those variables before `npm run hub`. Use a verified Resend sending domain and a reachable public HTTPS URL. The server does not load `.env` files automatically. Credentials never go to browsers. A temporary Cloudflare URL works only while that exact tunnel is active; use a stable origin for invitations people will open later. This version uses [Resend's email API](https://resend.com/docs/api-reference/emails/send-email); there is no automatic sending until explicitly enabled and configured.
+
+Each human identity can request up to ten emails per hour, across its rooms and browser sessions. Reusing a request ID replays the existing result without another submission; changing the recipient under that ID is rejected. Provider acceptance does not confirm inbox delivery. If a submission times out or the hub exits during it, delivery is **unconfirmed** and that request is never automatically resent, including after restart. Check with the recipient before deliberately creating another invitation. There is no background delivery worker or automatic retry queue.
+
+Migration 005 stores recipients, invitation messages, and submission state in the hub database; keep this local data private. Recipient addresses and invitation codes are not posted to the room or returned in email-submission results. Existing invitations/messages are preserved. Restart only the hub you intend to upgrade, and back up its database before applying a new version.
 
 LAN mode uses HTTP on a trusted LAN with private IPv4 addresses. Temporary HTTPS access from other networks is available through the tunnel setup below. Automated tests use a real server and MCP processes over loopback; a connection from a second physical machine remains a live acceptance check. See the [LAN contract and validation steps](docs/contracts/lan-v1.md).
 

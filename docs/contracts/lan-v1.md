@@ -13,7 +13,7 @@ No OS firewall, sandbox, managed configuration or proxy setting is changed. The 
 Migration 004 adds `hub_settings`, `invitations`, `room_access` and `agent_scopes`. It preserves the original local owner explicitly rather than deriving that identity from later guest creation order.
 
 - Host: retains the original local identity, creates rooms, edits room goals, invites people and agents, and revokes room invitations.
-- Invited human: has a separate owner/participant and cookie session. May read, join, message and report tasks in granted rooms, and invite agents belonging to them. May not create rooms or invite other people.
+- Invited human: has a separate owner/participant and cookie session. May read, join, message and report tasks in granted rooms, invite other people, and invite agents belonging to them. May not create rooms or edit goals. All invitations remain scoped to rooms they can access.
 - Invited agent: belongs to the inviting human's owner ID and is scoped to the invited room, including agents invited by the host. Local agents enrolled through the localhost endpoint without an invitation retain local behavior.
 
 Every room read/write checks the grant, in addition to membership. Room listing filters by access. These checks cover messages/history, tasks, participants, delivery, acknowledgements and SSE. Guessing a room ID or changing a display name grants no access. Rejoining another room with an invitation preserves an existing human's browser identity and adds a grant.
@@ -25,13 +25,18 @@ Every room read/write checks the grant, in addition to membership. Room listing 
 | `POST /api/v1/sessions/browser` | Restores an existing browser session; allows anonymous local host bootstrap; otherwise returns `JOIN_REQUIRED`. |
 | `POST /api/v1/sessions/join` | Redeems a human invitation using `request_id`, `invite_token`, and `name`; sets an HttpOnly, SameSite=Strict cookie. |
 | `POST /api/v1/rooms/:room/invitations` | Human member creates an invitation: `request_id`, `kind` (`human` or `agent`), optional label and `expires_in_minutes` (1–1440, default 60). |
-| `GET /api/v1/rooms/:room/invitations` | Lists metadata, use and revocation status. The host sees all room invitations; guests see their own agent invitations. Tokens are omitted. |
+| `GET /api/v1/rooms/:room/invitations` | Lists metadata, inviter (`id`, `name`, `kind`), use and revocation status. The host sees all room invitations; guests see their own invitations. Tokens are omitted. |
+| `POST /api/v1/rooms/:room/invitations/email` | Human member requests one email using `request_id`, `email`, optional `label`. Requires explicitly configured email sender and public HTTPS origin. Returns invitation ID, expiry, and `accepted`, `failed`, or `unknown`; no recipient or code. |
 | `POST /api/v1/rooms/:room/invitations/revoke` | Human creator/host revokes with `request_id` and `invitation_id`. |
 | `POST /api/v1/sessions/agent` | Fresh LAN enrollment requires an agent `invite_token`; resume uses the existing resume secret and rechecks scope. |
 
 Codes use 32 random bytes and are matched by hash. Invitation creation/redeem transactions preserve exact retry outcomes, including issuance credentials in the private database's retry records. Human redemption is tied to a request ID/name; agent redemption is tied to its resume secret. Reusing a code for another redemption is rejected. Expiry limits initial redemption; it does not terminate already-established access. Revocation rejects all later access/replay, wakes pending delivery checks, and closes room streams. Revoking human access also revokes that person's agent invitations for the room; later regranting human access does not revive those old agents.
 
 Revocation does not cancel terminal work. Tasks and messages retain historical attribution. Guest browser cookies may still identify the guest after revocation, but grant no access to the revoked room.
+
+Revoking a human also revokes their unused person invitations. Already-redeemed person invitations they created remain valid grants for those teammates until separately revoked. Their own agents lose access as before. Members may revoke their own invitations; the host may revoke any room invitation.
+
+Migration 005 adds `invitation_emails` for private recipient/message storage and durable provider-submission state. Email is off unless `ROOM_EMAIL_ENABLED=1`, `ROOM_EMAIL_API_KEY` and `ROOM_EMAIL_FROM` configure the Resend sender. Local browser sessions expose `access.email_enabled`; manual invitation links remain available when false. Ten email requests per human owner per hour are allowed across rooms/sessions. Same-ID retries never make another submission; conflicting payloads fail. Provider acceptance is not confirmation of inbox delivery. Network errors, provider server errors, and a hub exit during submission produce an unconfirmed outcome; neither API retries nor restarts resend automatically. There is no background retry worker. Sender credentials, recipient addresses, provider bodies and invitation codes never enter shared room events.
 
 ## Browser and terminal clients
 
