@@ -69,6 +69,7 @@ const mutation = { request_id: Id };
 const InviteToken = z.string().min(32).max(256);
 export const Invitation = z.object({ id: Id, room_id: Id, kind: z.enum(['human', 'agent']),
   label: z.string().max(80), expires_at: Timestamp, revoked_at: Timestamp.nullable(), used: z.boolean(),
+  inviter: Participant.pick({ id: true, name: true, kind: true }).optional(),
 }).strict();
 export const Inputs = {
   browserSession: z.object({}).strict(),
@@ -77,6 +78,8 @@ export const Inputs = {
     expires_in_minutes: z.number().int().min(1).max(1440).default(60),
   }).strict(),
   revokeInvitation: z.object({ ...mutation, invitation_id: Id }).strict(),
+  emailInvitation: z.object({ ...mutation, email: z.string().trim().email().max(254),
+    label: z.string().trim().max(80).default('') }).strict(),
   agentSession: z.object({
     ...mutation, mode: z.enum(['create', 'resume']), resume_token: z.string().min(32).max(256),
     name: z.string().trim().min(1).max(80), runtime: z.string().max(80).default('unknown'),
@@ -108,10 +111,13 @@ export const Outputs = {
   health: z.object({ status: z.literal('ok'), version: z.literal(VERSION) }).strict(),
   browserSession: z.object({ participant: Participant, access: z.object({
     mode: z.literal('lan'), public_url: z.string().url(), can_create_rooms: z.boolean(), can_invite_people: z.boolean(),
+    email_enabled: z.boolean().optional(),
   }).strict().optional() }).strict(),
   createInvitation: z.object({ invitation: Invitation, token: InviteToken }).strict(),
   invitations: z.object({ invitations: z.array(Invitation) }).strict(),
   revokeInvitation: z.object({ invitation_id: Id, revoked: z.literal(true) }).strict(),
+  emailInvitation: z.object({ invitation_id: Id, status: z.enum(['accepted', 'failed', 'unknown']),
+    expires_at: Timestamp }).strict(),
   agentSession: z.object({ participant: Participant, connection: Connection, token: z.string().min(32) }).strict(),
   rooms: z.object({ rooms: z.array(Room) }).strict(),
   createRoom: Room,

@@ -14,12 +14,13 @@ import { createLocalSession } from './local-session.js';
 import { createHttpServer } from './http-server.js';
 import { createStaticAssets } from './static-assets.js';
 import { createRoutes } from './routes/index.js';
+import { createInvitationEmail } from './invitation-email.js';
 
-export async function createHub({ filename, port = 0, lanHost = null, externalUrl = null, host = lanHost ? '0.0.0.0' : '127.0.0.1', bootId = randomUUID() }) {
+export async function createHub({ filename, port = 0, lanHost = null, externalUrl = null, emailSender = null, host = lanHost ? '0.0.0.0' : '127.0.0.1', bootId = randomUUID() }) {
   const changes = new EventEmitter();
   // Each active room wait/stream owns listeners and removes them on completion.
   changes.setMaxListeners(0);
-  let database, deliveryService, presence, browserStream, http, closing;
+  let database, deliveryService, presence, browserStream, http, closing, invitationEmail;
   function close() {
     if (!closing) closing = (async () => {
       const httpClosed = http?.close();
@@ -28,6 +29,7 @@ export async function createHub({ filename, port = 0, lanHost = null, externalUr
         browserStream?.close();
         presence?.close();
         await httpClosed;
+        await invitationEmail?.close();
       } finally {
         database?.close();
         changes.removeAllListeners();
@@ -46,8 +48,10 @@ export async function createHub({ filename, port = 0, lanHost = null, externalUr
     deliveryService = createDeliveryService({ delivery, rooms, identity, changes });
     presence = createPresenceService({ identity, rooms, events, deliveryService });
     browserStream = createBrowserStream({ events, rooms, identity, changes });
-    const sessions = createLocalSession({ identity, presence, changes, access, publicUrl: () => http.publicUrl });
-    const handlers = createRoutes({ sessions, rooms, events, tasks, access, deliveryService, presence, browserStream, changes });
+    invitationEmail = access ? createInvitationEmail({ database, access, rooms, publicUrl: () => http.publicUrl, sender: emailSender }) : null;
+    const sessions = createLocalSession({ identity, presence, changes, access, publicUrl: () => http.publicUrl,
+      emailEnabled: Boolean(emailSender && externalUrl) });
+    const handlers = createRoutes({ sessions, rooms, events, tasks, access, invitationEmail, deliveryService, presence, browserStream, changes });
     http = await createHttpServer({ port, host, lanHost, externalUrl, handlers, assets: createStaticAssets() });
     return { url: http.url, publicUrl: http.publicUrl, close };
   } catch (error) {

@@ -76,7 +76,7 @@ test('upgrading a version 1 database retains old messages and mutation replay wi
   const next = stores(upgraded);
   assert.deepEqual(next.events.history(context, room.id).events, [event]);
   assert.deepEqual(next.events.post(context, room.id, { request_id: 'original', text: event.payload.text, mention_ids: [] }), event);
-  assert.deepEqual(upgraded.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version), [1, 2, 3, 4]);
+  assert.deepEqual(upgraded.db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version), [1, 2, 3, 4, 5]);
 });
 
 test('older adapter JSON responses omit new fields without changing durable batches, history or acknowledgements', async t => {

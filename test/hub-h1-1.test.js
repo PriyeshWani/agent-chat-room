@@ -44,6 +44,7 @@ test('fresh foundation has exact columns, enforced foreign keys, WAL, and durabl
     invitations: 'id token_hash room_id owner_id created_by kind label expires_at revoked_at used_key used_payload result_json created_at',
     room_access: 'owner_id room_id invitation_id',
     agent_scopes: 'participant_id room_id invitation_id',
+    invitation_emails: 'id invitation_id participant_id room_id message_json status created_at',
   };
   assert.deepEqual(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all().map(row => row.name), [...Object.keys(columns), 'schema_migrations'].sort());
   for (const [table, names] of Object.entries(columns)) {
@@ -66,7 +67,7 @@ test('fresh foundation has exact columns, enforced foreign keys, WAL, and durabl
   const applied = { ...db.prepare('SELECT * FROM schema_migrations').get() };
   assert.equal(applied.version, 1);
   assert.ok(Number.isFinite(Date.parse(applied.applied_at)));
-  assert.deepEqual(db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version), [1, 2, 3, 4]);
+  assert.deepEqual(db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version), [1, 2, 3, 4, 5]);
   database.close();
   database.close();
   assert.throws(() => database.transaction(() => {}), /closed/);

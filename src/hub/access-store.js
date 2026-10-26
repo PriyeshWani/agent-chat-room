@@ -13,6 +13,10 @@ export function createAccessStore(database, { identity, now = () => new Date().t
   const { db, transaction } = database;
   const journal = createMutationStore(database);
   const localOwner = identity.localOwner();
+  function describe(row) {
+    const { id, name, kind } = identity.getParticipant(row.created_by);
+    return { ...publicInvite(row), inviter: { id, name, kind } };
+  }
   const scope = participant => db.prepare('SELECT * FROM agent_scopes WHERE participant_id=?').get(participant.id);
   const isHost = participant => participant.owner_id === localOwner && !scope(participant);
   function ownerAllowed(ownerId, roomId) {
@@ -37,14 +41,13 @@ export function createAccessStore(database, { identity, now = () => new Date().t
     const input = Inputs.createInvitation.parse(raw);
     return transaction(() => {
       const participant = human(context, roomId);
-      if (input.kind === 'human' && !isHost(participant)) denied();
       const key = { participantId: participant.id, requestId: input.request_id, operation: 'createInvitation', roomId, payload: input };
       const previous = journal.lookup(key); if (previous.found) return previous.result;
       const token = randomBytes(32).toString('base64url'), id = randomUUID();
       const expires = new Date(Date.parse(now()) + input.expires_in_minutes * 60000).toISOString();
       db.prepare(`INSERT INTO invitations(id,token_hash,room_id,owner_id,created_by,kind,label,expires_at,created_at)
         VALUES (?,?,?,?,?,?,?,?,?)`).run(id, hash(token), roomId, participant.owner_id, participant.id, input.kind, input.label, expires, now());
-      const result = { invitation: publicInvite(db.prepare('SELECT * FROM invitations WHERE id=?').get(id)), token };
+      const result = { invitation: describe(db.prepare('SELECT * FROM invitations WHERE id=?').get(id)), token };
       journal.record(key, result); return result;
     });
   }
@@ -52,7 +55,7 @@ export function createAccessStore(database, { identity, now = () => new Date().t
     return transaction(() => {
       const participant = human(context, roomId);
       return { invitations: db.prepare('SELECT * FROM invitations WHERE room_id=? ORDER BY created_at DESC,id').all(roomId)
-        .filter(invite => isHost(participant) || invite.owner_id === participant.owner_id).map(publicInvite) };
+        .filter(invite => isHost(participant) || invite.owner_id === participant.owner_id).map(describe) };
     });
   }
   function revoke(context, roomId, raw) {
@@ -65,7 +68,7 @@ export function createAccessStore(database, { identity, now = () => new Date().t
       if (!invite || !(isHost(participant) || invite.owner_id === participant.owner_id)) denied();
       db.prepare('UPDATE invitations SET revoked_at=COALESCE(revoked_at,?) WHERE id=?').run(now(), invite.id);
       if (invite.kind === 'human') db.prepare(`UPDATE invitations SET revoked_at=COALESCE(revoked_at,?)
-        WHERE kind='agent' AND room_id=? AND owner_id IN (SELECT owner_id FROM room_access WHERE invitation_id=?)`)
+        WHERE (kind='agent' OR used_key IS NULL) AND room_id=? AND owner_id IN (SELECT owner_id FROM room_access WHERE invitation_id=?)`)
         .run(now(), roomId, invite.id);
       const output = { invitation_id: invite.id, revoked: true }; journal.record(key, output); return output;
     });
@@ -119,5 +122,5 @@ export function createAccessStore(database, { identity, now = () => new Date().t
       return result;
     });
   }
-  return { isHost, canAccess, authorize, create, list, revoke, joinBrowser, agentSession };
+  return { isHost, canAccess, authorize, requireHuman: human, create, list, revoke, joinBrowser, agentSession };
 }

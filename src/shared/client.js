@@ -83,6 +83,7 @@ export class RoomClient {
   browserSession(options = {}) { return this.request('/sessions/browser', { ...options, method: 'POST', body: {} }); }
   joinBrowser(input, options = {}) { return this.request('/sessions/join', { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
   createInvitation(roomId, input, options = {}) { return this.request(`/rooms/${encodeURIComponent(roomId)}/invitations`, { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
+  emailInvitation(roomId, input, options = {}) { return this.request(`/rooms/${encodeURIComponent(roomId)}/invitations/email`, { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
   listInvitations(roomId, options) { return this.request(`/rooms/${encodeURIComponent(roomId)}/invitations`, options); }
   revokeInvitation(roomId, input, options = {}) { return this.request(`/rooms/${encodeURIComponent(roomId)}/invitations/revoke`, { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
   async agentSession(input, options = {}) {

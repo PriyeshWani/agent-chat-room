@@ -36,7 +36,7 @@ test('LAN requires invitations and keeps distinct humans and room grants across 
   assert.notEqual(a.joined.participant.id, b.joined.participant.id);
   assert.notEqual(a.joined.participant.owner_id, s.participant.owner_id);
   assert.deepEqual(await a.client.browserSession(), a.joined);
-  assert.equal(a.joined.access.can_invite_people, false);
+  assert.equal(a.joined.access.can_invite_people, true);
   assert.equal((await s.host.browserSession()).access.can_invite_people, true);
   assert.deepEqual((await a.client.listRooms()).rooms.map(room => room.id), [s.room.id]);
   for (const operation of [
@@ -44,7 +44,6 @@ test('LAN requires invitations and keeps distinct humans and room grants across 
     () => a.client.listTasks(s.privateRoom.id), () => a.client.listParticipants(s.privateRoom.id),
     () => a.client.postMessage(s.privateRoom.id, { text: 'No' }),
     () => a.client.createRoom({ name: 'Not host' }),
-    () => a.client.createInvitation(s.room.id, { kind: 'human' }),
   ]) await assert.rejects(operation(), error => error.code === 'FORBIDDEN');
   const message = await a.client.postMessage(s.room.id, { text: 'A distinct human contribution' });
   assert.equal(message.author.id, a.joined.participant.id); assert.equal(message.author.name, 'Sam');

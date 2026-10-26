@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
 import { createHub } from '../src/hub/main.js';
+import { createEmailSender } from '../src/hub/invitation-email.js';
 
 try {
   const configuredPort = process.env.ROOM_HUB_PORT ?? '8787';
@@ -10,7 +11,7 @@ try {
   const filename = resolve(process.env.ROOM_HUB_DATA ?? '.agent-chat-room/hub.sqlite');
   const lanHost = process.env.ROOM_HUB_LAN_HOST ?? null;
   const externalUrl = process.env.ROOM_HUB_PUBLIC_URL ?? null;
-  const hub = await createHub({ filename, port: Number(configuredPort), lanHost, externalUrl });
+  const hub = await createHub({ filename, port: Number(configuredPort), lanHost, externalUrl, emailSender: createEmailSender() });
   let stopping = false;
   const stop = async () => {
     if (stopping) return;

@@ -44,7 +44,7 @@ test('host creates an invitation, a named visitor joins through the actual UI, a
   assert.equal(visitor.$('join-code').value, '');
   assert.equal(visitor.$('create-room-button').disabled, true);
   assert.equal(visitor.$('room-goal-edit').hidden, true);
-  assert.equal(visitor.$('invite-human').hidden, true);
+  assert.equal(visitor.$('invite-human').hidden, false);
   assert.match(visitor.$('agent-command').textContent, /--invite$/);
   visitor.$('invite-agent').click();
   await until(() => !visitor.$('invite-result').hidden);
@@ -62,7 +62,7 @@ test('host creates an invitation, a named visitor joins through the actual UI, a
   assert.equal(host.$('conversation').querySelector('.message--own'), null);
   assert.match(host.$('conversation').textContent, /Sam/);
   await host.app.accessPanel.refresh();
-  const revoke = [...host.$('invitations-list').querySelectorAll('li')].find(item => item.textContent.includes('Sam')).querySelector('button');
+  const revoke = [...host.$('invitations-list').querySelectorAll('li')].find(item => item.textContent.startsWith('<img src=x> Sam ·')).querySelector('button');
   revoke.click(); await until(() => host.$('invite-status').textContent === 'Access revoked.');
   await assert.rejects(guestClient.postMessage(room.id, { text: 'Denied' }), error => error.code === 'FORBIDDEN');
   assert.equal(host.$('invite-result').hidden, true);

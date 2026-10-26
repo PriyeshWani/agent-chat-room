@@ -4,6 +4,7 @@ export function createAccessPanel({ document, client, onJoined }) {
   const $ = id => document.getElementById(id);
   let access = null, room = null, destroyed = false, generation = 0, controller = null, listController = null, currentInviteId = null;
   let joinAttempt = null, joinController = null;
+  let emailAttempt = null, emailController = null;
   const attempts = new Map(), revocations = new Map();
   const window = document.defaultView;
   // Invitations stay in the fragment until this page reads them, never in a
@@ -61,7 +62,7 @@ export function createAccessPanel({ document, client, onJoined }) {
         const item = document.createElement('li');
         const description = document.createElement('span');
         const status = invite.revoked_at ? 'Revoked' : invite.used ? 'Joined' : Date.parse(invite.expires_at) <= Date.now() ? 'Expired' : 'Not used';
-        description.textContent = `${invite.label || (invite.kind === 'human' ? 'Person' : 'My agent')} · ${status}`;
+        description.textContent = `${invite.label || (invite.kind === 'human' ? 'Person' : 'My agent')} · ${status}${invite.inviter ? ` · Invited by ${invite.inviter.name}` : ''}`;
         item.append(description);
         if (!invite.revoked_at) {
           const button = document.createElement('button'); button.type = 'button'; button.textContent = invite.used ? 'Revoke access' : 'Revoke invitation';
@@ -105,6 +106,11 @@ export function createAccessPanel({ document, client, onJoined }) {
   }
   function select(selected) {
     ++generation; controller?.abort(); controller = null; listController?.abort();
+    emailController?.abort(); emailController = null; emailAttempt = null;
+    $('invite-email').value = '';
+    $('invite-email').disabled = !access?.email_enabled;
+    $('invite-email-send').disabled = !selected || !access?.email_enabled;
+    $('invite-email-status').textContent = access?.email_enabled ? 'Send a single-use invitation to this room.' : 'Email sending is not configured. Share an invitation link instead.';
     room = selected; $('share-room').hidden = !room || !access;
     currentInviteId = null;
     $('invite-result').hidden = true; $('invite-output').value = ''; $('invite-launch').textContent = '';
@@ -119,14 +125,43 @@ export function createAccessPanel({ document, client, onJoined }) {
     if (access) $('join-panel').hidden = true;
   }
   const inviteHuman = () => { void create('human'); }, inviteAgent = () => { void create('agent'); };
+  async function sendEmail(event) {
+    event.preventDefault();
+    if (destroyed || !room || !access?.email_enabled || emailController) return;
+    const operation = generation, id = room.id;
+    const email = $('invite-email').value.trim(), label = $('invite-label').value.trim();
+    if (!emailAttempt || emailAttempt.email !== email || emailAttempt.label !== label) {
+      emailAttempt = { email, label, request_id: requestId() };
+    }
+    const request = new AbortController(); emailController = request;
+    $('invite-email-send').disabled = true; $('invite-email-status').textContent = 'Sending invitation…';
+    try {
+      const result = await client.emailInvitation(id, emailAttempt, { signal: request.signal });
+      if (destroyed || operation !== generation) return;
+      const messages = {
+        accepted: 'Invitation accepted by the email provider. Inbox delivery is not confirmed.',
+        failed: 'The email provider rejected this invitation. Share a new invitation link instead.',
+        unknown: 'Email submission is unconfirmed. This request will not be resent automatically. Check with the recipient before creating another.',
+      };
+      $('invite-email-status').textContent = messages[result.status];
+      await refresh();
+    } catch (error) {
+      if (!destroyed && operation === generation) $('invite-email-status').textContent = `${error.message} Retry uses the same invitation request.`;
+    } finally {
+      if (emailController === request) emailController = null;
+      if (!destroyed && operation === generation) $('invite-email-send').disabled = false;
+    }
+  }
   const refreshClicked = () => { void refresh(); };
   $('join-form').addEventListener('submit', join);
+  $('invite-email-form').addEventListener('submit', sendEmail);
   $('invite-human').addEventListener('click', inviteHuman); $('invite-agent').addEventListener('click', inviteAgent);
   $('invitations-refresh').addEventListener('click', refreshClicked);
   function destroy() {
-    destroyed = true; ++generation; controller?.abort(); listController?.abort(); joinController?.abort();
+    destroyed = true; ++generation; controller?.abort(); listController?.abort(); joinController?.abort(); emailController?.abort();
     attempts.clear(); joinAttempt = null; $('invite-output').value = ''; $('join-code').value = '';
     $('join-form').removeEventListener('submit', join); $('invite-human').removeEventListener('click', inviteHuman);
+    $('invite-email-form').removeEventListener('submit', sendEmail);
     $('invite-agent').removeEventListener('click', inviteAgent); $('invitations-refresh').removeEventListener('click', refreshClicked);
   }
   return { select, setAccess, showJoin, refresh, destroy, hasInvitation: () => pendingInvitation };
