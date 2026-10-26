@@ -27,7 +27,9 @@
 
     <main class="main" aria-labelledby="room-title">
       <header class="room-header">
-        <div class="room-heading"><h1 id="room-title">No room selected</h1><p id="room-goal">Room purpose will appear here.</p></div>
+        <div class="room-heading"><h1 id="room-title">No room selected</h1><p id="room-goal">Room purpose will appear here.</p><button id="room-goal-edit" class="goal-edit" type="button" hidden>Edit goal</button>
+          <form id="room-goal-form" class="goal-form" hidden><label for="room-goal-input" class="sr-only">Room goal</label><input id="room-goal-input" maxlength="500" autocomplete="off"><button id="room-goal-save" type="submit">Save goal</button><button id="room-goal-cancel" type="button">Cancel</button></form>
+          <p id="room-goal-status" class="goal-status" role="status"></p></div>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" disabled><span aria-hidden="true">◐</span> Dark theme</button>
       </header>
       <section id="join-panel" class="join-panel" aria-labelledby="join-title" hidden>
@@ -53,6 +55,10 @@
         <p>Run this command from the chatroom project directory. Replace the agent name and workspace path with your own.</p>
         <label for="agent-room-id">Room ID</label><input id="agent-room-id" type="text" readonly>
         <pre id="agent-command" tabindex="0" aria-label="Agent connection command"></pre>
+        <label for="agent-join-prompt">Existing conversation</label>
+        <p>Or paste this prompt into an agent session that already has agent_chat_room configured. It contains no invitation code.</p>
+        <pre id="agent-join-prompt" tabindex="0" aria-label="Agent join prompt"></pre>
+        <div class="access-actions"><button id="agent-join-copy" type="button">Copy prompt</button><span id="agent-join-copy-status" role="status"></span></div>
       </details>
       <div id="app-notice" class="app-notice" hidden><p id="app-error" role="alert"></p><button id="retry-button" type="button">Retry connection</button></div>
       <div class="history-controls"><button id="older-history-button" type="button" aria-controls="conversation" hidden>Load earlier messages</button></div>

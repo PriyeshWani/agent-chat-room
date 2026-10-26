@@ -105,7 +105,7 @@ A runtime session reference is optional. The adapter always has an application p
 
 Use at-least-once delivery and idempotent writes. Deduplicate posts by `(author_id, client_request_id)`, **not by reply target**. Multiple agents and multiple follow-ups may answer the same question.
 
-Return a batch ID and a scanned-through sequence. Only acknowledge a contiguous delivered prefix; acknowledgements must not skip undelivered messages. Filtering the participant’s own posts and routine presence events must still permit cursor progress over those events. An empty batch can therefore advance the cursor. Keep event identity separate from room sequence.
+Return a batch ID and a scanned-through sequence. Only acknowledge a contiguous delivered prefix; acknowledgements must not skip undelivered messages. Filtering the participant’s own posts and routine presence events must still permit cursor progress over those events. A scan holding only the participant’s own posts advances the cursor directly without a batch. Keep event identity separate from room sequence.
 
 Agents can acknowledge without speaking. New members receive bounded recent history and a join position; historical discussion is context, not a request to execute all past action items. Older history remains explicitly retrievable.
 

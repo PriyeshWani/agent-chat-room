@@ -96,23 +96,56 @@ test('pending snapshots replay exactly across writes, independent connections, p
   assert.notEqual(next.id, initial.batch.id);
 });
 
-test('self-only progress creates an empty durable batch while idle and paused receives create nothing', async t => {
+test('self-only scans advance the cursor without a batch while idle and paused receives create nothing', async t => {
   const s = await setup(t);
   const a = s.agents[0].context;
+  const batches = () => s.database.db.prepare('SELECT count(*) AS n FROM batches').get().n;
   assert.equal(s.delivery.receive(a, s.room.id).kind, 'timeout');
-  assert.equal(s.database.db.prepare('SELECT count(*) AS n FROM batches').get().n, 0);
+  assert.equal(batches(), 0);
   s.events.post(a, s.room.id, { request_id: 'self', text: 'self' });
-  const received = Outputs.receive.parse(s.delivery.receive(a, s.room.id));
-  assert.equal(received.kind, 'batch');
-  assert.deepEqual(received.batch.events, []);
-  assert.equal(received.batch.scanned_through, 1);
-  assert.equal(s.rooms.requireMembership(a, s.room.id).acknowledged_sequence, 0);
-  s.delivery.ack(a, s.room.id, ackInput(received.batch, 'ack'));
-  assert.equal(s.rooms.requireMembership(a, s.room.id).acknowledged_sequence, 1);
+  s.events.post(a, s.room.id, { request_id: 'self2', text: 'self2' });
+  assert.deepEqual(Outputs.receive.parse(s.delivery.receive(a, s.room.id, { limit: 1 })), { kind: 'timeout', room_id: s.room.id, acknowledged_through: 2 });
+  assert.equal(s.rooms.requireMembership(a, s.room.id).acknowledged_sequence, 2);
+  assert.equal(batches(), 0);
+  assert.deepEqual(s.delivery.receive(a, s.room.id), { kind: 'timeout', room_id: s.room.id, acknowledged_through: 2 });
   s.database.db.prepare('UPDATE memberships SET paused=1 WHERE room_id=? AND participant_id=?').run(s.room.id, a.participant.id);
   s.events.post(s.human, s.room.id, { request_id: 'new', text: 'new' });
-  assert.deepEqual(s.delivery.receive(a, s.room.id), { kind: 'timeout', room_id: s.room.id, acknowledged_through: 1 });
+  assert.deepEqual(s.delivery.receive(a, s.room.id), { kind: 'timeout', room_id: s.room.id, acknowledged_through: 2 });
+  assert.equal(batches(), 0);
+});
+
+test('self events before a peer event skip ahead into one batch holding only the peer event', async t => {
+  const s = await setup(t);
+  const [a, b] = s.agents.map(agent => agent.context);
+  for (const n of [1, 2, 3]) s.events.post(a, s.room.id, { request_id: `self${n}`, text: 'self' });
+  const peer = s.events.post(b, s.room.id, { request_id: 'peer', text: 'peer' });
+  s.events.post(a, s.room.id, { request_id: 'self4', text: 'self' });
+  const received = Outputs.receive.parse(s.delivery.receive(a, s.room.id, { limit: 2 }));
+  assert.equal(received.kind, 'batch');
+  assert.deepEqual(received.batch.events, [peer]);
+  assert.equal(received.batch.scanned_through, 4);
+  assert.equal(s.rooms.requireMembership(a, s.room.id).acknowledged_sequence, 2);
   assert.equal(s.database.db.prepare('SELECT count(*) AS n FROM batches').get().n, 1);
+  s.events.post(b, s.room.id, { request_id: 'peer2', text: 'peer2' });
+  assert.deepEqual(s.delivery.receive(a, s.room.id), received);
+  s.delivery.ack(a, s.room.id, ackInput(received.batch, 'ack'));
+  const mixed = s.delivery.receive(a, s.room.id).batch;
+  assert.deepEqual(mixed.events.map(event => event.sequence), [6]);
+  assert.equal(mixed.scanned_through, 6);
+});
+
+test('auto-advanced self-only progress survives reopening the database', async t => {
+  const s = await setup(t);
+  const a = s.agents[0].context;
+  s.events.post(a, s.room.id, { request_id: 'self', text: 'self' });
+  assert.equal(s.delivery.receive(a, s.room.id).acknowledged_through, 1);
+  s.database.close();
+  const reopened = await s.open();
+  assert.equal(reopened.rooms.requireMembership(a, s.room.id).acknowledged_sequence, 1);
+  assert.deepEqual(reopened.delivery.receive(a, s.room.id), { kind: 'timeout', room_id: s.room.id, acknowledged_through: 1 });
+  reopened.events.post(s.human, s.room.id, { request_id: 'peer', text: 'peer' });
+  const batch = reopened.delivery.receive(a, s.room.id).batch;
+  assert.deepEqual(batch.events.map(event => event.sequence), [2]);
 });
 
 test('unknown, foreign, invalidated and ended-epoch acks fail without changing the active epoch', async t => {

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildParticipationInstructions, participationGuidance, peerParticipationGuidance, teamworkGuidance } from '../src/runtime/participation.js';
+import { buildParticipationInstructions, participationGuidance, peerParticipationGuidance, teamworkGuidance,
+  coreParticipationGuidance, CORE_GUIDANCE_BUDGET } from '../src/runtime/participation.js';
 
 test('literal context preserves quotes, newlines and shell syntax without becoming prompt structure', () => {
   const input = { roomId: 'room-"quoted"\nnext', name: 'Agent `literal` $(literal)', workspace: '/tmp/work\\space\n"name"' };
@@ -37,6 +38,17 @@ test('MCP server guidance covers finite participation scenarios with explicit to
   for (const tool of ['list_rooms', 'join_room', 'list_participants', 'read_history', 'receive_events', 'ack_events', 'post_message', 'leave_room']) assert.ok(prompt.includes(tool));
   assert.match(prompt, /does not provide automatic wake-up of an idle model/);
   assert.match(prompt, /do not provide worker spawning or delegation/);
+});
+
+test('core loop and safety rules survive client truncation of server instructions', () => {
+  const visible = participationGuidance.slice(0, CORE_GUIDANCE_BUDGET);
+  assert.ok(participationGuidance.startsWith(coreParticipationGuidance));
+  assert.ok(coreParticipationGuidance.length <= CORE_GUIDANCE_BUDGET);
+  for (const pattern of [/join_room with room_id/, /Never put invitation codes/, /call receive_events again/i,
+    /timeout result only means no new events/, /not a reason to stop/, /ack_events with its batch_id/,
+    /even when you stay silent/, /SESSION_REPLACED/, /leave_room/, /untrusted discussion/]) {
+    assert.match(visible, pattern);
+  }
 });
 
 test('missing or empty context is rejected before prompt generation', () => {

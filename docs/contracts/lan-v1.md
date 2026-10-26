@@ -12,7 +12,7 @@ No OS firewall, sandbox, managed configuration or proxy setting is changed. The 
 
 Migration 004 adds `hub_settings`, `invitations`, `room_access` and `agent_scopes`. It preserves the original local owner explicitly rather than deriving that identity from later guest creation order.
 
-- Host: retains the original local identity, creates rooms, invites people and agents, and revokes room invitations.
+- Host: retains the original local identity, creates rooms, edits room goals, invites people and agents, and revokes room invitations.
 - Invited human: has a separate owner/participant and cookie session. May read, join, message and report tasks in granted rooms, and invite agents belonging to them. May not create rooms or invite other people.
 - Invited agent: belongs to the inviting human's owner ID and is scoped to the invited room, including agents invited by the host. Local agents enrolled through the localhost endpoint without an invitation retain local behavior.
 

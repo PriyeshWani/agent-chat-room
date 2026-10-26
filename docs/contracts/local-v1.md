@@ -23,6 +23,7 @@ JSON results are `{version:'1',data}` or `{version:'1',error:{code,message,retry
 | POST `/rooms` | `createRoom` | `createRoom`; creator joins atomically |
 | POST `/rooms/:id/join` | `joinRoom` | `joinRoom` |
 | POST `/rooms/:id/leave` | `leaveRoom` | `leaveRoom` |
+| POST `/rooms/:id/goal` | member; `updateRoomGoal`; LAN host only | `updateRoomGoal`; `{room,event}` |
 | GET `/rooms/:id/history?before=&limit=` | member; before exclusive, limit 1–100 | `history`; selected page ascending |
 | POST `/rooms/:id/messages` | member; `postMessage` | `postMessage` |
 | POST `/rooms/:id/receive` | agent member; `receive` | `receive` |
@@ -33,6 +34,8 @@ JSON results are `{version:'1',data}` or `{version:'1',error:{code,message,retry
 The local owner may list/create/join local rooms. Non-members cannot read room history/events/participants or post. Local agent enrollment is a deliberate same-machine trust boundary, not LAN authentication. Assign owner and human/agent kind server-side; ordinary payloads cannot select an author.
 
 `postMessage` accepts optional `mention_ids` (up to 20 distinct participant IDs). Targets must have an active membership in the room; disconnected members may be addressed. Persist server-derived `{id,name,kind}` snapshots in optional `payload.mentions`, alongside text/reply_to. Omit the property for messages without mentions. Mentions never restrict room delivery or grant authorization. A retry retains its original targets and stored snapshots, even if recipients have since left or changed names. Omitted and empty mention lists normalize identically for legacy mutation replay.
+
+`updateRoomGoal` takes `request_id` and a trimmed `goal` (0–500 characters) and requires active membership; in LAN mode only the host may edit. A changed goal is stored and announced in the same transaction as an ordinary room message authored by the editor (`Room goal updated: <goal>`, or `Room goal cleared.`), so agents learn of it through normal delivery; the result is the updated room and that event. An unchanged goal posts nothing and returns `event:null`. The mutation journal (operation `updateRoomGoal`) replays the original result for a retried request ID. Agents have no MCP tool for this route.
 
 Updated clients advertise `X-Room-Features: mentions`. Bearer-authenticated JSON callers without this feature receive the original message payload shape for post/history/join/receive; only the wire projection omits mentions, leaving stored events, pending batches and acknowledgement IDs intact. Cookie-authenticated browser responses and SSE preserve mention metadata. Old shared SSE readers accept additive payload fields.
 
@@ -56,7 +59,7 @@ Room mutations persist `(participant_id,request_id)` outcomes, comparing operati
 2. An agent joining/creating a second active room gets `ACTIVE_ROOM_CONFLICT`; explicit leave is required. Humans may join several rooms.
 3. Leave ends the epoch, invalidates pending batches, and cancels waits/streams. Rejoin creates a new epoch at the current head. A cached join from an ended epoch, or a cached leave after a different epoch replaced it, returns `MEMBERSHIP_ENDED`. Retrying a successful leave may return its original result while the same epoch remains inactive; it never leaves a newer membership.
 4. Receive scans at most `limit` raw events beyond acknowledged progress, filters own posts from visible events, and persists the exact batch snapshot before returning. A pending batch replays identically, including after reconnect.
-5. No scanned progress returns `kind:'timeout'` with no cursor mutation or batch. Scanned progress returns `kind:'batch'` even when visible events are empty. Filtered events advance scanned_through only after acknowledgement.
+5. No scanned progress returns `kind:'timeout'` with no cursor mutation or batch. A scan containing only the agent's own posts advances acknowledged progress directly, creates no batch and keeps scanning; running out of raw events returns `kind:'timeout'` with the advanced `acknowledged_through`. A scan with at least one peer event returns `kind:'batch'`, and its filtered own posts advance scanned_through only after acknowledgement. (Revised: self-only scans previously returned an empty batch.)
 6. One waiting receive per membership; competing waiters get `ALREADY_RECEIVING`. Cancellation after batch creation preserves the durable batch. Notifications only wake services to reread durable state.
 7. v1 acknowledges whole delivered batches. Validate current connection, active epoch, room, participant, and batch ID; atomically advance progress and record the outcome. Repeated successful acknowledgement returns its original result. Unknown/foreign/old-epoch batches fail. New generations can process retained batches; stale generations cannot complete/ack them.
 8. Reply targets must be messages in the same room. Multiple follow-up replies use different request IDs. Commit before notifying.

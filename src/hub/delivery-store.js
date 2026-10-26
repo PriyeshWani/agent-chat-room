@@ -30,14 +30,23 @@ export function createDeliveryStore(database, { identity, rooms, events, now = (
       const pending = db.prepare("SELECT * FROM batches WHERE room_id=? AND participant_id=? AND membership_epoch=? AND status='pending'")
         .get(roomId, member.participant_id, member.epoch);
       if (pending) return { kind: 'batch', batch: publicBatch(pending) };
-      const timeout = { kind: 'timeout', room_id: roomId, acknowledged_through: member.acknowledged_sequence };
-      if (member.paused) return timeout;
-      const scanned = events.after(context, roomId, { after: member.acknowledged_sequence, limit }).events;
-      if (!scanned.length) return timeout;
+      let acknowledged = member.acknowledged_sequence;
+      const timeout = () => ({ kind: 'timeout', room_id: roomId, acknowledged_through: acknowledged });
+      if (member.paused) return timeout();
+      let scanned, visible;
+      for (;;) {
+        scanned = events.after(context, roomId, { after: acknowledged, limit }).events;
+        if (!scanned.length) return timeout();
+        visible = scanned.filter(event => event.author.id !== member.participant_id);
+        if (visible.length) break;
+        // A self-only scan carries nothing to process: advance without a batch.
+        acknowledged = scanned.at(-1).sequence;
+        db.prepare('UPDATE memberships SET acknowledged_sequence=MAX(acknowledged_sequence,?) WHERE room_id=? AND participant_id=? AND epoch=?')
+          .run(acknowledged, roomId, member.participant_id, member.epoch);
+      }
       const batch = {
         id: id(), room_id: roomId, membership_epoch: member.epoch,
-        events: scanned.filter(event => event.author.id !== member.participant_id),
-        scanned_through: scanned.at(-1).sequence,
+        events: visible, scanned_through: scanned.at(-1).sequence,
       };
       db.prepare('INSERT INTO batches VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(batch.id, roomId, member.participant_id, member.epoch, batch.scanned_through, JSON.stringify(batch.events), 'pending', now());

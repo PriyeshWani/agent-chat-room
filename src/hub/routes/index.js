@@ -16,6 +16,6 @@ export function createRoutes({ sessions, rooms, events, tasks, access, deliveryS
     createInvitationRoutes({ sessions, rooms, access }),
     createDeliveryRoutes({ sessions, deliveryService }),
     createPresenceRoutes({ sessions, presence }),
-    createStreamRoutes({ sessions, browserStream, events }),
+    createStreamRoutes({ sessions, browserStream }),
   ];
 }

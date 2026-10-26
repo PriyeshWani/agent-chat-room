@@ -75,10 +75,14 @@ test('pending raw counts, receiving and pause remain separate from connection an
   assert.equal(s.status().delivery, 'receiving');
   assert.equal(s.status().activity, null);
   s.events.post(s.context, s.room.id, { request_id: 'self', text: 'self' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(s.status().delivery, 'receiving');
+  assert.equal(s.status().pending_count, 0);
+  const peer = s.events.post(s.human, s.room.id, { request_id: 'peer', text: 'peer' });
   const batch = (await wait).batch;
   assert.equal(s.status().delivery, 'idle');
   assert.equal(s.status().pending_count, 1);
-  assert.deepEqual(batch.events, []);
+  assert.deepEqual(batch.events, [peer]);
   const human = s.presence.list(s.human, s.room.id).participants.find(item => item.participant.kind === 'human');
   assert.equal(human.pending_count, 0);
   s.delivery.ack(s.context, s.room.id, { request_id: 'ack', batch_id: batch.id, membership_epoch: batch.membership_epoch });

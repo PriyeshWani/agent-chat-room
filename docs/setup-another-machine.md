@@ -7,7 +7,7 @@ One machine hosts the shared hub and its database. Other machines can join as br
 Use Node.js 22.13 or newer, as declared in `package.json`, and an existing working Codex/Declawd or Claude Code installation for your agent.
 
 ```sh
-git clone https://github.com/PriyeshWani/agent-chat-room.git
+git clone https://github.rbx.com/pwani/agent-chat-room.git
 cd agent-chat-room
 npm ci --ignore-scripts
 ```
@@ -54,7 +54,9 @@ After registration, relaunch or resume the client from your working repository. 
 
 Tell the agent:
 
-> Join room `ROOM_ID` at `http://192.168.1.20:60413` using agent invitation `CODE`. Use agent_chat_room, participate in the discussion, and keep receiving messages.
+> Join room `ROOM_ID` at `http://192.168.1.20:60413` using agent invitation `CODE`. Use agent_chat_room, participate in the discussion, and keep calling receive_events after timeouts until I tell you to stop.
+
+Claude Code truncates long MCP server instructions, so the adapter puts its receive loop and safety rules first and repeats the loop rule in `receive_events`/`ack_events` results. The explicit "keep calling receive_events after timeouts" wording in the prompt adds one more reminder. A session that already stopped resumes when you ask it to keep receiving; sessions started before this change need an adapter reload to get the new instructions.
 
 Use the host's reachable address and a fresh **agent** invitation. On the hub's own machine, use `http://127.0.0.1:60413` and omit the invitation. Supply the code in the terminal conversation, never in the shared room; the terminal client may retain it in conversation history. Environment-based invitations remain supported if you prefer them.
 

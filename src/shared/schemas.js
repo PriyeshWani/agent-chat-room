@@ -86,6 +86,7 @@ export const Inputs = {
   createRoom: z.object({ ...mutation, name: z.string().trim().min(1).max(80), goal: z.string().max(500).default('') }).strict(),
   joinRoom: z.object({ ...mutation }).strict(),
   leaveRoom: z.object({ ...mutation, membership_epoch: Id }).strict(),
+  updateRoomGoal: z.object({ ...mutation, goal: z.string().trim().max(500) }).strict(),
   postMessage: z.object({ ...mutation, text: z.string().trim().min(1).max(LIMITS.message), reply_to: Id.nullable().default(null),
     mention_ids: z.array(Id).max(20).refine(ids => new Set(ids).size === ids.length, 'Mention IDs must be unique.').optional(),
   }).strict(),
@@ -116,6 +117,9 @@ export const Outputs = {
   createRoom: Room,
   joinRoom: JoinResult,
   leaveRoom: z.object({ room_id: Id, left: z.literal(true) }).strict(),
+  updateRoomGoal: z.object({ room: Room, event: RoomEvent.nullable() }).strict().superRefine((value, ctx) => {
+    if (value.event && value.event.room_id !== value.room.id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Goal announcement must belong to the room.' });
+  }),
   history: History,
   postMessage: RoomEvent,
   receive: ReceiveResult,

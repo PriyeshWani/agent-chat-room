@@ -124,6 +124,28 @@ export function createRoomStore(database, { identity, access, now = () => new Da
       return output;
     });
   }
+  function updateGoal(context, roomId, raw, { events }) {
+    const input = parse(Inputs.updateRoomGoal, raw);
+    return transaction(() => {
+      const participant = authorize(context, roomId);
+      const room = roomRow(roomId);
+      requireMembership(context, room.id);
+      if (access && !access.isHost(participant)) fail('FORBIDDEN', 'Only the host can edit the room goal.', 403);
+      const key = keyFor(participant, input, 'updateRoomGoal', room.id);
+      const previous = journal.lookup(key);
+      if (previous.found) return previous.result;
+      let event = null;
+      if (room.goal !== input.goal) {
+        db.prepare('UPDATE rooms SET goal=? WHERE id=?').run(input.goal, room.id);
+        // An ordinary message tells agents about the change through normal delivery.
+        const text = input.goal ? `Room goal updated: ${input.goal}` : 'Room goal cleared.';
+        event = events.post(context, room.id, { request_id: id(), text }, { notify: false });
+      }
+      const result = { room: publicRoom(roomRow(room.id)), event };
+      journal.record(key, result);
+      return result;
+    });
+  }
   function requireMembership(context, roomId, { epoch } = {}) {
     return transaction(() => {
       const participant = authorize(context, roomId);
@@ -143,5 +165,5 @@ export function createRoomStore(database, { identity, access, now = () => new Da
         .filter(record => !access || access.canAccess(record.participant, roomId));
     });
   }
-  return { list, get, create, join, leave, requireMembership, listMembers };
+  return { list, get, create, join, leave, updateGoal, requireMembership, listMembers };
 }

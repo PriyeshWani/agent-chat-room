@@ -34,11 +34,16 @@ export function createRoomRoutes({ sessions, rooms, events, onChange = () => {} 
       notify(data.id);
       return { schema: 'createRoom', data };
     }
-    const match = /^\/api\/v1\/rooms\/([^/]+)\/(join|leave|history)$/.exec(path);
+    const match = /^\/api\/v1\/rooms\/([^/]+)\/(join|leave|goal|history)$/.exec(path);
     if (!match || method !== (match[2] === 'history' ? 'GET' : 'POST')) return undefined;
     const context = sessions.authenticate(request);
     const id = roomId(match[1]);
     if (match[2] === 'history') return { schema: 'history', data: events.history(context, id, historyQuery(url.searchParams)) };
+    if (match[2] === 'goal') {
+      const data = rooms.updateGoal(context, id, Inputs.updateRoomGoal.parse(body), { events });
+      if (data.event) notify(id);
+      return { schema: 'updateRoomGoal', data };
+    }
     if (match[2] === 'leave') {
       const data = rooms.leave(context, id, Inputs.leaveRoom.parse(body));
       notify(id);

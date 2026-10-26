@@ -93,6 +93,7 @@ export class RoomClient {
   listRooms(options) { return this.request('/rooms', options); }
   createRoom(input, options = {}) { return this.request('/rooms', { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
   joinRoom(roomId, input = {}, options = {}) { return this.request(`/rooms/${encodeURIComponent(roomId)}/join`, { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
+  updateRoomGoal(roomId, input, options = {}) { return this.request(`/rooms/${encodeURIComponent(roomId)}/goal`, { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
   leaveRoom(roomId, input, options = {}) { return this.request(`/rooms/${encodeURIComponent(roomId)}/leave`, { ...options, method: 'POST', body: { request_id: requestId(), ...input } }); }
   history(roomId, { before, limit = 50, signal } = {}) {
     const query = new URLSearchParams({ limit: String(limit) });
@@ -111,31 +112,7 @@ export class RoomClient {
   disconnect(options = {}) { return this.request('/sessions/disconnect', { ...options, method: 'POST', body: {} }); }
 
   async *events(roomId, { after = 0, signal, onOpen } = {}) {
-    if (new URL(this.baseUrl).hostname.endsWith('.trycloudflare.com')) {
-      // Quick Tunnels buffer SSE. Read finite pages with the same durable cursor.
-      let cursor = after;
-      for (;;) {
-        let count = 0;
-        for await (const event of this.eventStream(roomId, { after: cursor, signal, onOpen, poll: true })) {
-          if (event.sequence !== cursor + 1) throw new ApiError('INVALID_RESPONSE', 'Polling returned a noncontiguous room event.');
-          cursor = event.sequence;
-          count++;
-          yield event;
-        }
-        if (count === 100) continue;
-        await new Promise((resolve, reject) => {
-          if (signal?.aborted) { reject(signal.reason); return; }
-          const abort = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); reject(signal.reason); };
-          const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, 1000);
-          signal?.addEventListener('abort', abort, { once: true });
-        });
-      }
-    }
-    yield* this.eventStream(roomId, { after, signal, onOpen });
-  }
-
-  async *eventStream(roomId, { after = 0, signal, onOpen, poll = false } = {}) {
-    const response = await this.fetchImpl(`${this.baseUrl}${API_PATH}/rooms/${encodeURIComponent(roomId)}/stream?after=${after}${poll ? '&poll=1' : ''}`, {
+    const response = await this.fetchImpl(`${this.baseUrl}${API_PATH}/rooms/${encodeURIComponent(roomId)}/stream?after=${after}`, {
       signal, credentials: 'same-origin', redirect: 'error', headers: { Accept: 'text/event-stream', 'X-Room-Features': 'mentions', ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}) },
     });
     if (!response.ok) {

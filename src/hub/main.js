@@ -15,7 +15,7 @@ import { createHttpServer } from './http-server.js';
 import { createStaticAssets } from './static-assets.js';
 import { createRoutes } from './routes/index.js';
 
-export async function createHub({ filename, port = 0, lanHost = null, externalUrl = null, host = lanHost ? '0.0.0.0' : '127.0.0.1', bootId = randomUUID() }) {
+export async function createHub({ filename, port = 0, lanHost = null, host = lanHost ? '0.0.0.0' : '127.0.0.1', bootId = randomUUID() }) {
   const changes = new EventEmitter();
   // Each active room wait/stream owns listeners and removes them on completion.
   changes.setMaxListeners(0);
@@ -38,7 +38,7 @@ export async function createHub({ filename, port = 0, lanHost = null, externalUr
   try {
     database = await openDatabase({ filename });
     const identity = createIdentityStore(database, { bootId });
-    const access = lanHost || externalUrl ? createAccessStore(database, { identity, onChange: roomId => changes.emit('room', roomId) }) : null;
+    const access = lanHost ? createAccessStore(database, { identity, onChange: roomId => changes.emit('room', roomId) }) : null;
     const rooms = createRoomStore(database, { identity, access });
     const events = createEventStore(database, { identity, rooms, onChange: roomId => changes.emit('room', roomId) });
     const tasks = createTaskStore(database, { identity, rooms, events, onChange: roomId => changes.emit('room', roomId) });
@@ -48,7 +48,7 @@ export async function createHub({ filename, port = 0, lanHost = null, externalUr
     browserStream = createBrowserStream({ events, rooms, identity, changes });
     const sessions = createLocalSession({ identity, presence, changes, access, publicUrl: () => http.publicUrl });
     const handlers = createRoutes({ sessions, rooms, events, tasks, access, deliveryService, presence, browserStream, changes });
-    http = await createHttpServer({ port, host, lanHost, externalUrl, handlers, assets: createStaticAssets() });
+    http = await createHttpServer({ port, host, lanHost, handlers, assets: createStaticAssets() });
     return { url: http.url, publicUrl: http.publicUrl, close };
   } catch (error) {
     await close();

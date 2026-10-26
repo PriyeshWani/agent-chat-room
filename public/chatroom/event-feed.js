@@ -4,7 +4,7 @@ const invalid = message => Object.assign(new Error(message), { code: 'INVALID_RE
 const fatal = error => error?.code === 'INVALID_RESPONSE' || error?.code === 'VERSION_MISMATCH'
   || (error?.status >= 400 && error?.status < 500);
 
-export function createEventFeed({ client, onEvents = () => {}, onState = () => {}, retryMs = 1000 }) {
+export function createEventFeed({ client, onEvents = () => {}, onState = () => {}, onStreamEvent = () => {}, retryMs = 1000 }) {
   const delay = Number.isFinite(retryMs) ? Math.max(1, Math.min(30000, retryMs)) : 1000;
   let session = null;
   let destroyed = false;
@@ -93,6 +93,8 @@ export function createEventFeed({ client, onEvents = () => {}, onState = () => {
           const gap = event.sequence > value.cursor + 1;
           while (value.observed.delete(value.cursor + 1)) value.cursor++;
           if (changed) publish(value);
+          if (!current(value)) return;
+          if (changed) onStreamEvent(copyEvent(event));
           if (!current(value)) return;
           if (gap) {
             error = Object.assign(new Error('Room events arrived out of order; replaying the missing events.'), { code: 'EVENT_GAP' });

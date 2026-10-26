@@ -1,17 +1,17 @@
 import { Inputs } from '../../shared/schemas.js';
 
 export function createSessionRoutes({ sessions }) {
-  return ({ request, response, path, method, body, secure }) => {
+  return ({ request, response, path, method, body }) => {
     if (method !== 'POST') return undefined;
     if (path === '/api/v1/sessions/browser') {
       Inputs.browserSession.parse(body);
       const { token, ...data } = sessions.browserSession(request);
-      response.setHeader('Set-Cookie', `acr_session=${token}; HttpOnly; SameSite=Strict; Path=/${secure ? '; Secure' : ''}`);
+      response.setHeader('Set-Cookie', `acr_session=${token}; HttpOnly; SameSite=Strict; Path=/`);
       return { schema: 'browserSession', data };
     }
     if (path === '/api/v1/sessions/join') {
       const { token, ...data } = sessions.joinBrowser(Inputs.joinBrowser.parse(body), request);
-      response.setHeader('Set-Cookie', `acr_session=${token}; HttpOnly; SameSite=Strict; Path=/${secure ? '; Secure' : ''}`);
+      response.setHeader('Set-Cookie', `acr_session=${token}; HttpOnly; SameSite=Strict; Path=/`);
       return { schema: 'browserSession', data };
     }
     if (path === '/api/v1/sessions/agent') {

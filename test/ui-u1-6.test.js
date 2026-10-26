@@ -26,11 +26,11 @@ async function hubFor(t) {
   t.after(() => hub.close());
   return hub;
 }
-async function tab(t, client) {
+async function tab(t, client, options = {}) {
   const { document, window } = parseHTML(html);
   const conversation = document.getElementById('conversation');
   conversation.scrollTop = 0; conversation.scrollHeight = 100; conversation.clientHeight = 100;
-  const app = await mountChatroom({ document, client });
+  const app = await mountChatroom({ document, client, ...options });
   t.after(() => app.destroy());
   const $ = id => document.getElementById(id);
   function type(text) { $('message-input').value = text; $('message-input').dispatchEvent(new window.Event('input')); }
@@ -42,7 +42,8 @@ test('two real tabs create/select rooms, retain human identity/drafts and exchan
   const hub = await hubFor(t);
   const firstBrowser = await browserClient(hub.url), secondBrowser = await browserClient(hub.url);
   assert.equal(firstBrowser.participant.id, secondBrowser.participant.id);
-  const first = await tab(t, firstBrowser.client);
+  let writeText = async () => { throw new Error('denied'); };
+  const first = await tab(t, firstBrowser.client, { clipboard: { writeText: value => writeText(value) } });
   assert.equal(first.$('rooms-list').children.length, 0);
   assert.equal(first.$('message-input').disabled, true);
   const createdA = await first.app.rooms.create({ name: '<img src=x> Design', goal: '<script>Goal</script>' });
@@ -58,6 +59,16 @@ test('two real tabs create/select rooms, retain human identity/drafts and exchan
   assert.ok(first.$('agent-room-id').hasAttribute('readonly'));
   assert.equal(first.$('agent-command').textContent, `npm run chat -- --room '${createdA.room.id}' --hub '${firstBrowser.client.baseUrl}' --name "Agent name" --workspace /path/to/repo`);
   assert.match(first.$('connect-agent').textContent, /chatroom project directory/);
+  const prompt = id => `Join room ${id} at ${firstBrowser.client.baseUrl}. Use agent_chat_room, participate in the discussion, and keep calling receive_events after timeouts until I tell you to stop.`;
+  assert.equal(first.$('agent-join-prompt').textContent, prompt(createdA.room.id));
+  const copied = [];
+  writeText = async value => { copied.push(value); };
+  first.$('agent-join-copy').click();
+  await until(() => first.$('agent-join-copy-status').textContent === 'Copied.');
+  assert.deepEqual(copied, [prompt(createdA.room.id)]);
+  writeText = async () => { throw new Error('denied'); };
+  first.$('agent-join-copy').click();
+  await until(() => /Copy unavailable/.test(first.$('agent-join-copy-status').textContent));
   assert.equal(first.document.querySelector('img'), null);
   first.type('Draft in A'); await first.app.rooms.select(createdB.room.id);
   first.type('Draft in B'); await first.app.rooms.select(createdA.room.id);
@@ -73,6 +84,8 @@ test('two real tabs create/select rooms, retain human identity/drafts and exchan
   await until(() => first.$('conversation').textContent.includes('Reply from the second tab'));
   await first.app.rooms.select(createdB.room.id);
   assert.equal(first.$('agent-room-id').value, createdB.room.id);
+  assert.equal(first.$('agent-join-prompt').textContent, prompt(createdB.room.id));
+  assert.equal(first.$('agent-join-copy-status').textContent, '');
   assert.equal(first.$('message-input').value, 'Draft in B');
   assert.doesNotMatch(first.$('conversation').textContent, /Literal shared message/);
   assert.equal((await firstBrowser.client.history(createdA.room.id)).events.length, 2);
@@ -122,6 +135,7 @@ test('selection failure clears old content, preserves drafts, retries intended r
   assert.equal(ui.$('connect-agent').hidden, true);
   assert.equal(ui.$('agent-room-id').value, '');
   assert.equal(ui.$('agent-command').textContent, '');
+  assert.equal(ui.$('agent-join-prompt').textContent, '');
   assert.match(ui.$('app-error').textContent, /Room request failed/);
   assert.equal(ui.$('retry-button').hidden, false);
   await ui.app.retry(); assert.equal(ui.app.rooms.getState().selectedRoomId, roomB.id);

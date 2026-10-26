@@ -43,6 +43,7 @@ test('host creates an invitation, a named visitor joins through the actual UI, a
   assert.equal(visitor.$('join-panel').hidden, true);
   assert.equal(visitor.$('join-code').value, '');
   assert.equal(visitor.$('create-room-button').disabled, true);
+  assert.equal(visitor.$('room-goal-edit').hidden, true);
   assert.equal(visitor.$('invite-human').hidden, true);
   assert.match(visitor.$('agent-command').textContent, /--invite$/);
   visitor.$('invite-agent').click();
@@ -51,6 +52,9 @@ test('host creates an invitation, a named visitor joins through the actual UI, a
   assert.ok(agentCode.length >= 32);
   assert.match(visitor.$('invite-launch').textContent, /--invite$/);
   assert.ok(!visitor.$('invite-launch').textContent.includes(agentCode));
+  const prompt = visitor.$('agent-join-prompt').textContent;
+  assert.equal(prompt, `Join room ${room.id} at ${hub.publicUrl}. Use agent_chat_room, participate in the discussion, and keep calling receive_events after timeouts until I tell you to stop.`);
+  assert.ok(!prompt.includes(agentCode) && !prompt.includes(token));
   visitor.$('message-input').value = 'A named contribution';
   visitor.$('message-input').dispatchEvent(new visitor.window.Event('input'));
   visitor.$('composer').dispatchEvent(new visitor.window.Event('submit', { cancelable: true }));
@@ -96,4 +100,27 @@ test('browser controls work with secure random values when randomUUID is unavail
   ui.$('message-input').value = 'Random fallback works'; ui.$('message-input').dispatchEvent(new ui.window.Event('input'));
   ui.$('composer').dispatchEvent(new ui.window.Event('submit', { cancelable: true }));
   await until(() => ui.$('conversation').textContent.includes('Random fallback works') && ui.app.composer.getPending().length === 0);
+});
+
+test('LAN join prompt uses the loopback origin for the host tab and the public URL for visitors', { timeout: 15000 }, async t => {
+  const hub = await createHub({ filename: ':memory:', lanHost: '192.168.50.10', host: '127.0.0.1' }); t.after(() => hub.close());
+  const { client } = await browserClient(hub.url);
+  const room = await client.createRoom({ name: 'Prompt origins' });
+  const invitation = await client.createInvitation(room.id, { kind: 'human', label: 'Sam' });
+  const agentInvite = await client.createInvitation(room.id, { kind: 'agent', label: 'Agent' });
+  const host = await tab(t, client);
+  await until(() => host.$('room-title').textContent === '# Prompt origins');
+  const hostPrompt = host.$('agent-join-prompt').textContent;
+  assert.equal(new URL(hub.url).hostname, '127.0.0.1');
+  assert.ok(hostPrompt.startsWith(`Join room ${room.id} at ${hub.url}.`), hostPrompt);
+  assert.ok(!hostPrompt.includes(hub.publicUrl));
+  const guestClient = lanBrowser(hub);
+  await guestClient.joinBrowser({ request_id: requestId(), invite_token: invitation.token, name: 'Sam' });
+  const visitor = await tab(t, guestClient);
+  await until(() => visitor.$('room-title').textContent === '# Prompt origins');
+  const visitorPrompt = visitor.$('agent-join-prompt').textContent;
+  assert.ok(visitorPrompt.startsWith(`Join room ${room.id} at ${hub.publicUrl}.`), visitorPrompt);
+  for (const prompt of [hostPrompt, visitorPrompt]) {
+    assert.ok(!prompt.includes(invitation.token) && !prompt.includes(agentInvite.token));
+  }
 });

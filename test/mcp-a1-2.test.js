@@ -52,10 +52,16 @@ test('timeouts, empty progress and visible batches pass unchanged without implic
     ? { schema: 'receive', data: result } : undefined }); t.after(() => fixture.close());
   const mcp = await adapter(t, fixture);
   await mcp.call('join_room', { room_id: f.room.id });
-  assert.deepEqual((await mcp.call('receive_events')).data, timeout);
+  const quiet = await mcp.call('receive_events');
+  assert.deepEqual(quiet.data, timeout);
+  // Clients that truncate server instructions still see the loop continue.
+  assert.equal(quiet.content.length, 2);
+  assert.match(quiet.content[1].text, /call receive_events again/);
   assert.deepEqual(fixture.calls.at(-1).body, { wait_ms: 20000, limit: 50 });
   result = { kind: 'batch', batch: { ...f.batch, events: [], scanned_through: 7 } };
-  assert.deepEqual((await mcp.call('receive_events', { wait_ms: 0, limit: 1 })).data, result);
+  const progress = await mcp.call('receive_events', { wait_ms: 0, limit: 1 });
+  assert.deepEqual(progress.data, result);
+  assert.equal(progress.content.length, 1);
   assert.deepEqual(fixture.calls.at(-1).body, { wait_ms: 0, limit: 1 });
   result = { kind: 'batch', batch: f.batch };
   assert.deepEqual((await mcp.call('receive_events')).data, result);
@@ -72,7 +78,9 @@ test('ack forwards captured epoch and caller request ID through HTTP and externa
   const mcp = await adapter(t, fixture);
   await mcp.call('join_room', { room_id: f.room.id });
   const expected = { room_id: f.room.id, batch_id: f.batch.id, acknowledged_through: 1 };
-  assert.deepEqual((await mcp.call('ack_events', ackInput)).data, expected);
+  const acked = await mcp.call('ack_events', ackInput);
+  assert.deepEqual(acked.data, expected);
+  assert.match(acked.content[1].text, /call receive_events again/);
   assert.deepEqual((await mcp.call('ack_events', ackInput)).data, expected);
   const calls = fixture.calls.filter(call => call.path.endsWith('/ack'));
   assert.equal(calls.length, 3);

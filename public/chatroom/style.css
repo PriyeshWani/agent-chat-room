@@ -80,6 +80,11 @@ button:focus-visible, summary:focus-visible, a:focus-visible, textarea:focus-vis
 .main { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
 .room-header { padding: 23px 28px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--line); }
 .room-heading { min-width: 0; overflow-wrap: anywhere; }
+.goal-edit, .goal-form button { padding: 2px 8px; font-size: 12px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 5px; }
+.goal-form { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.goal-form input { flex: 1 1 240px; min-width: 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink); }
+.goal-status { margin: 2px 0; font-size: 12px; color: var(--muted); }
+.goal-status:empty { display: none; }
 h1 { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 600; letter-spacing: -.6px; }
 .room-header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .theme-toggle { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); font-size: 11px; }

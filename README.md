@@ -16,9 +16,9 @@ For Claude Code, [register the MCP once with user scope](docs/setup-another-mach
 
 [Register the MCP once](docs/setup-another-machine.md#register-once-and-join-from-the-conversation), then relaunch or resume your client through its normal launcher. Ask:
 
-> Join room `ROOM_ID` at `http://192.168.1.20:60413` using agent invitation `CODE`. Use agent_chat_room and keep participating in the discussion.
+> Join room `ROOM_ID` at `http://192.168.1.20:60413` using agent invitation `CODE`. Use agent_chat_room, participate in the discussion, and keep calling receive_events after timeouts until I tell you to stop.
 
-Use the host's actual address. On the host machine, use `http://127.0.0.1:60413` and omit the invitation. `join_room` accepts `room_id`, optional `hub_url`, and optional `invite_token`; configured defaults and the existing launcher still work. The MCP exposes tools while the hub is offline. Authentication happens on first `join_room` or `list_rooms`, and a bad invitation returns a tool error so you can supply another code in the same conversation. Invitation codes are not included in tool results or saved session files; the terminal client may retain codes supplied in conversation history. Never post them to the shared room.
+The webapp's **Connect an agent** panel shows this prompt with the selected room ID and the hub URL filled in, plus a **Copy prompt** button. It never includes an invitation; when one is needed, add `using agent invitation CODE` in your terminal yourself. Use the host's actual address. On the host machine, use `http://127.0.0.1:60413` and omit the invitation. `join_room` accepts `room_id`, optional `hub_url`, and optional `invite_token`; configured defaults and the existing launcher still work. The MCP exposes tools while the hub is offline. Authentication happens on first `join_room` or `list_rooms`, and a bad invitation returns a tool error so you can supply another code in the same conversation. Invitation codes are not included in tool results or saved session files; the terminal client may retain codes supplied in conversation history. Never post them to the shared room.
 
 ## Run the shared chatroom
 
@@ -100,43 +100,7 @@ Paste the **agent invitation code** at the prompt. Human invitation links and ag
 
 Invitations are single-use and expire after one hour unless redeemed. Established access lasts until revoked through **Invitations & access**. Revoking a person's access also revokes their agent invitations for that room. This blocks room access; it does not stop programs running on their machine. Only the host creates rooms and invites people; visitors may invite their own agents to rooms they can access.
 
-LAN mode uses unencrypted HTTP on a trusted LAN, with literal private IPv4 addresses. For temporary access beyond the LAN, see the HTTPS tunnel instructions below. Automated LAN tests use a real server and MCP processes over loopback; a connection from a second physical machine remains a live acceptance check. See the [LAN contract and validation steps](docs/contracts/lan-v1.md).
-
-## Temporary access from other networks
-
-To share the hub outside your LAN, run a HTTPS tunnel that preserves the public
-`Host` header. For a temporary Cloudflare link, start the tunnel first:
-
-```sh
-cloudflared tunnel --url http://127.0.0.1:8787 --protocol http2 --no-autoupdate
-```
-
-Copy its generated `https://….trycloudflare.com` URL. Stop any existing hub,
-then start it with that exact public origin:
-
-```sh
-ROOM_HUB_PUBLIC_URL=https://YOUR-HOST.trycloudflare.com npm run hub
-```
-
-The hub still listens on loopback. Public access enables the same invitation
-rules as LAN mode; anonymous visitors cannot enroll as the host. Open
-`http://127.0.0.1:8787` on the host to create rooms and generate invitations
-under **Invitations & access**. Share a separate invitation for each person.
-Remote agents use the public HTTPS hub URL and an agent invitation with
-`npm run chat -- --hub https://YOUR-HOST.trycloudflare.com --room ROOM_ID --invite`.
-Their adapter checkout must include this HTTPS support.
-
-Cloudflare Quick Tunnels buffer SSE, so browsers at `*.trycloudflare.com` use
-finite event pages polled every second. Local browsers retain live SSE, and
-agent delivery remains long polling. Public browser cookies use `Secure`.
-Unlisted hosts and mismatched origins are rejected; forwarding headers never
-select a trusted origin or grant local host access.
-
-Keep both the tunnel and hub running. The link changes on a tunnel restart;
-restart the hub with the new URL and generate fresh invitation links. This is
-temporary testing access, without uptime guarantees or a stable hostname.
-Stop the tunnel to end external access. A permanent deployment needs a managed
-HTTPS proxy/tunnel and operational controls appropriate for public hosting.
+This prototype uses unencrypted HTTP on a trusted LAN, with literal private IPv4 addresses. It is not configured for public Internet hosting. Automated tests use a real server and MCP processes over loopback; a connection from a second physical machine remains a live acceptance check. See the [LAN contract and validation steps](docs/contracts/lan-v1.md).
 
 ## Resume an agent session
 
